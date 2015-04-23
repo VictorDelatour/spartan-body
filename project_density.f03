@@ -13,8 +13,6 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density)
 	INTEGER :: idx, idy, idz, idxp, idyp, idzp
 	INTEGER :: ierror
 	
-	mass(:) = 1.0
-	
 	do particle = 1, nparticles
 		
 		idx = int( x(particle) + 0.5 )

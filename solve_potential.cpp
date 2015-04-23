@@ -1,10 +1,10 @@
 #include "solve_potential.hpp"
 
-void solve_potential(World *world, const int& nx, const int& ny, const int& nz, real_t* density){
+void solve_potential(World *world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d& potential){
 	
 	
 	real_function_3d rho_interp;
-	real_function_3d phi;
+	// real_function_3d phi;
 	
 	if (world->rank() == 0) printf("Setup initial parameters\n");
 	set_initial_parameters(nx);
@@ -19,15 +19,15 @@ void solve_potential(World *world, const int& nx, const int& ny, const int& nz, 
 	if (world->rank() == 0) printf("Built...\n\n");
 	
 	if (world->rank() == 0) printf("Printing density\n");
-	print_density(world, rho_interp, 128, nx);
+	// print_density(world, rho_interp, 128, nx);
 	if (world->rank() == 0) printf("Printed...\n\n");
 	
 	if (world->rank() == 0) printf("Computing potential\n");
-	compute_potential(world, rho_interp, phi, 1e-3, 1e-6);
+	compute_potential(world, rho_interp, potential, 1e-6, 1e-8);
 	if (world->rank() == 0) printf("Computed...\n\n");
 	
 	if (world->rank() == 0) printf("Printing potential\n");
-	print_potential(world, phi, 128, nx);
+	// print_potential(world, potential, 128, nx);
 	if (world->rank() == 0) printf("Printed...\n\n");
 	
 }
@@ -58,20 +58,25 @@ void build_projected_density(World *world, const int& nx, const int& ny, const i
 	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
 	projected_density = real_factory_3d(*world).functor(density_functor);
 	
+	// if (world->rank() == 0) printf("Density evaluation: %f\n", projected_density(5.0, 5.0, 5.0));
+	
 }
 
 void compute_potential(World* world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
 	
 	double integral, volume, mean;
 	
+	if (world->rank() == 0) printf("\tProjecting potential\n");
 	real_convolution_3d coulomb_operator = CoulombOperator(*world, precision, threshold);
 	potential = coulomb_operator(projected_density);
+	if (world->rank() == 0) printf("\tProjected potential\n");
 	
 	integral = potential.trace();
 	volume = FunctionDefaults<3>::get_cell_volume();
 	mean = integral/volume;
-
+	
 	potential = potential - mean;
+	if (world->rank() == 0) printf("\tNormalized\n");
 	
 }
 

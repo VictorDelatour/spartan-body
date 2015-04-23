@@ -1,9 +1,9 @@
-SUBROUTINE PART_INIT(nx, ny, nz, nparticles, x, y, z, mass)
+SUBROUTINE PART_INIT(nx, ny, nz, nparticles, x, y, z, vx, vy, vz, mass)
 	
 	IMPLICIT NONE
 	
 	INTEGER :: nx, ny, nz, nparticles
-	REAL*8, DIMENSION(nparticles) :: x, y, z, mass
+	REAL*8, DIMENSION(nparticles) :: x, y, z, vx, vy, vz, mass 
 	
 	INTEGER :: unit_part, pos
 	CHARACTER(LEN = 128) :: filename
@@ -22,10 +22,10 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, x, y, z, mass)
 	read(unit_part) y
 	read(unit_part) z
 	
-	do pos = 1,3
-		read(unit_part) mass ! Skip velocity
-	end do
-	
+	read(unit_part) vx
+	read(unit_part) vy
+	read(unit_part) vz
+
 	read(unit_part) mass !
 	
 ! 	write(*,'(a i4 i4 i4)') 'Dimensions:', nx, ny, nz
