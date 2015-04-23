@@ -18,10 +18,18 @@ void solve_potential(World *world, const int& nx, const int& ny, const int& nz, 
 	build_projected_density(world, nx, ny, nz, density, rho_interp);
 	if (world->rank() == 0) printf("Built...\n\n");
 	
-	if (world->rank() == 0) printf("Printing\n");
-	// build_projected_density(world, nx, ny, nz, density, rho_interp);
+	if (world->rank() == 0) printf("Printing density\n");
 	print_density(world, rho_interp, 128, nx);
 	if (world->rank() == 0) printf("Printed...\n\n");
+	
+	if (world->rank() == 0) printf("Computing potential\n");
+	compute_potential(world, rho_interp, phi, 1e-3, 1e-6);
+	if (world->rank() == 0) printf("Computed...\n\n");
+	
+	if (world->rank() == 0) printf("Printing potential\n");
+	print_potential(world, phi, 128, nx);
+	if (world->rank() == 0) printf("Printed...\n\n");
+	
 }
 
 void set_initial_parameters(const int& nx){
@@ -52,6 +60,22 @@ void build_projected_density(World *world, const int& nx, const int& ny, const i
 	
 }
 
+void compute_potential(World* world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
+	
+	double integral, volume, mean;
+	
+	real_convolution_3d coulomb_operator = CoulombOperator(*world, precision, threshold);
+	potential = coulomb_operator(projected_density);
+	
+	integral = potential.trace();
+	volume = FunctionDefaults<3>::get_cell_volume();
+	mean = integral/volume;
+
+	potential = potential - mean;
+	
+}
+
+
 void print_density(World *world, const real_function_3d& projected_density, const int& numpts, const int& nx){
 	
 	// Check if the density has been projected!
@@ -71,5 +95,25 @@ void print_density(World *world, const real_function_3d& projected_density, cons
 	plotvtk_begin(*world, filename_density, plotlo, plothi, npoints);
 	plotvtk_data(projected_density, "density", *world, filename_density, plotlo, plothi, npoints);
 	plotvtk_end<3>(*world, filename_density);
+	
+}
+
+void print_potential(World* world, const real_function_3d& potential, const int& numpts, const int& nx){
+	
+	const char filename_potential[] = "data/spartan_potential.vts";
+	
+	Vector<double, 3> plotlo, plothi;
+	Vector<long, 3> npoints;
+	
+	
+	for(int i(0); i < 3; ++i){
+		plotlo[i] = 1;
+		plothi[i] = (double) nx;
+		npoints[i] = numpts;
+	}
+	
+	plotvtk_begin(*world, filename_potential, plotlo, plothi, npoints);
+	plotvtk_data(potential, "potential", *world, filename_potential, plotlo, plothi, npoints);
+	plotvtk_end<3>(*world, filename_potential);
 	
 }
