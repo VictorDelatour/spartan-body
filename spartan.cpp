@@ -49,11 +49,7 @@ int main(int argc, char** argv){
 
 	solve_potential(world, nx, ny, nz, &density[0], &potential);
 
-	// if (world.rank() == 0) printf("Potential evaluation: %f\n", potential(5.0, 5.0, 5.0));
-
-	// update_particles(&world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
-
-	if (world.rank() == 0) printf("Particles updated, WHAT ARE YOU WAITING FOR!\n");
+	update_particles(&world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, &potential, timestep);
 
 	finalize();
 	

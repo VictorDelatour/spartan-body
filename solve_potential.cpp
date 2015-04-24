@@ -18,9 +18,9 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 	build_projected_density(world, nx, ny, nz, density, &rho_interp);
 	if (world.rank() == 0) printf("Built...\n\n");
 	
-	if (world.rank() == 0) printf("Printing density\n");
-	print_density(world, &rho_interp, 128, nx);
-	if (world.rank() == 0) printf("Printed...\n\n");
+	// if (world.rank() == 0) printf("Printing density\n");
+	// print_density(world, &rho_interp, 128, nx);
+	// if (world.rank() == 0) printf("Printed...\n\n");
 
 	// CORE DUMP? WHY?
 	if (world.rank() == 0) printf("Computing potential\n");
@@ -29,9 +29,9 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 	
 	potential = &phi;
 	
-	if (world.rank() == 0) printf("Printing potential\n");
-	print_potential(world, potential, 128, nx);
-	if (world.rank() == 0) printf("Printed...\n\n");
+	// if (world.rank() == 0) printf("Printing potential\n");
+	// print_potential(world, potential, 128, nx);
+	// if (world.rank() == 0) printf("Printed...\n\n");
 	
 }
 
