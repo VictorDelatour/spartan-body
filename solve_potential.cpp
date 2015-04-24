@@ -4,7 +4,7 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 	
 	
 	real_function_3d rho_interp;
-	// real_function_3d phi;
+	real_function_3d phi;
 	
 	if (world.rank() == 0) printf("Setup initial parameters\n");
 	set_initial_parameters(nx);
@@ -24,8 +24,10 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 
 	// CORE DUMP? WHY?
 	if (world.rank() == 0) printf("Computing potential\n");
-	compute_potential(world, rho_interp, potential, 1e-6, 1e-8);
+	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
 	if (world.rank() == 0) printf("Computed...\n\n");
+	
+	potential = phi;
 	
 	// if (world.rank() == 0) printf("Printing potential\n");
 	// print_potential(world, potential, 128, nx);
@@ -58,6 +60,13 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	
 	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
 	projected_density = real_factory_3d(world).functor(density_functor);
+	
+	// real_convolution_3d coulomb_operator = CoulombOperator(world, 1e-6, 1e-8);
+	// real_function_3d potential;
+	//
+	// if (world.rank() == 0) printf("\tProjecting potential\n");
+	//
+	// potential = coulomb_operator(projected_density);
 	
 	// if (world.rank() == 0) printf("Density evaluation: %f\n", projected_density(5.0, 5.0, 5.0));
 	
