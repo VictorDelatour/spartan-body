@@ -26,9 +26,9 @@ int main(int argc, char** argv){
 	initialize(argc, argv);
 	World world(SafeMPI::COMM_WORLD);
 	startup(world, argc, argv);
-		
+
 	get_dim_(&nx, &ny, &nz, &nparticles);
-	
+
 	x.resize(nparticles);
 	y.resize(nparticles);
 	z.resize(nparticles);
@@ -37,19 +37,24 @@ int main(int argc, char** argv){
 	vz.resize(nparticles);
 	mass.resize(nparticles);
 	density.resize(nx*ny*nz);
-		
+	
+
+	if (world.rank() == 0) printf("Initializing particles...\n");
 	part_init_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
-	
+	if (world.rank() == 0) printf("Done.\n");
+
+	if (world.rank() == 0) printf("Density from particles...\n");
 	project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0]);
-	
+	if (world.rank() == 0) printf("Done.\n");
+
 	solve_potential(&world, nx, ny, nz, &density[0], potential);
-	
+
 	// if (world.rank() == 0) printf("Potential evaluation: %f\n", potential(5.0, 5.0, 5.0));
-	
-	update_particles(&world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
-	
+
+	// update_particles(&world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
+
 	if (world.rank() == 0) printf("Particles updated, WHAT ARE YOU WAITING FOR!\n");
-	
+
 	finalize();
 	
 	return 0;

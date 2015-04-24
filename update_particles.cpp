@@ -18,21 +18,22 @@ void update_particles(World* world, real_t* x, real_t* y, real_t* z, real_t* vx,
 	if (world->rank() == 0) printf("\tDone.\n");
 	
 	if (world->rank() == 0) printf("\tLooping over all particles... with %i processors\n", world->size());
+	
 	// for(int particle(0); particle < nparticles; ++particle){
 	
-	for(int particle = world->rank(); particle < upper_limit; particle += world->size()){
-		
-		coordT position, velocity;
-		position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
-		velocity[0] = vx[particle]; velocity[1] = vy[particle]; velocity[2] = vz[particle];
-		
-		update_velocity(position, velocity, timestep, gradient);
-		
-		update_position(position, velocity, timestep);
-		
-	}
-	
-	world->gop.fence();
+	// for(int particle = world->rank(); particle < upper_limit; particle += world->size()){
+	//
+	// 	coordT position, velocity;
+	// 	position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
+	// 	velocity[0] = vx[particle]; velocity[1] = vy[particle]; velocity[2] = vz[particle];
+	//
+	// 	update_velocity(position, velocity, timestep, gradient);
+	//
+	// 	update_position(position, velocity, timestep);
+	//
+	// }
+	//
+	// world->gop.fence();
 	
 	// for(int particle(0); particle < upper_limit; ++particle){
 	//
@@ -41,6 +42,7 @@ void update_particles(World* world, real_t* x, real_t* y, real_t* z, real_t* vx,
 	// 	update_position(&x[particle], &y[particle], &z[particle], &vx[particle], &vy[particle], &vz[particle], timestep);
 	//
 	// }
+	
 	if (world->rank() == 0) printf("\tDone.\n\n");
 	
 	if (world->rank() == 0) printf("Updated.\n\n");

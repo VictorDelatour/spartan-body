@@ -11,7 +11,7 @@ void solve_potential(World *world, const int& nx, const int& ny, const int& nz, 
 	if (world->rank() == 0) printf("Set...\n\n");
 	
 	if (world->rank() == 0) printf("Setup projection precision\n");
-	set_projection_precision(4, 1e-2);
+	set_projection_precision(9, 1e-7);
 	if (world->rank() == 0) printf("Set...\n\n");
 	
 	if (world->rank() == 0) printf("Build projected density\n");
@@ -19,16 +19,17 @@ void solve_potential(World *world, const int& nx, const int& ny, const int& nz, 
 	if (world->rank() == 0) printf("Built...\n\n");
 	
 	if (world->rank() == 0) printf("Printing density\n");
-	// print_density(world, rho_interp, 128, nx);
+	print_density(world, rho_interp, 128, nx);
 	if (world->rank() == 0) printf("Printed...\n\n");
-	
+
+	// CORE DUMP? FUCK YOU
 	if (world->rank() == 0) printf("Computing potential\n");
 	compute_potential(world, rho_interp, potential, 1e-6, 1e-8);
 	if (world->rank() == 0) printf("Computed...\n\n");
 	
-	if (world->rank() == 0) printf("Printing potential\n");
+	// if (world->rank() == 0) printf("Printing potential\n");
 	// print_potential(world, potential, 128, nx);
-	if (world->rank() == 0) printf("Printed...\n\n");
+	// if (world->rank() == 0) printf("Printed...\n\n");
 	
 }
 
@@ -62,21 +63,28 @@ void build_projected_density(World *world, const int& nx, const int& ny, const i
 	
 }
 
-void compute_potential(World* world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
+void compute_potential(World* world, real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
 	
 	double integral, volume, mean;
-	
+	real_function_3d yolo;
+
 	if (world->rank() == 0) printf("\tProjecting potential\n");
+	
 	real_convolution_3d coulomb_operator = CoulombOperator(*world, precision, threshold);
-	potential = coulomb_operator(projected_density);
+	
+	// This is the problem...
+	//potential = coulomb_operator(projected_density);
+	
+	// yolo = coulomb_operator(projected_density);
+	
 	if (world->rank() == 0) printf("\tProjected potential\n");
-	
-	integral = potential.trace();
-	volume = FunctionDefaults<3>::get_cell_volume();
-	mean = integral/volume;
-	
-	potential = potential - mean;
-	if (world->rank() == 0) printf("\tNormalized\n");
+	//
+	// integral = potential.trace();
+	// volume = FunctionDefaults<3>::get_cell_volume();
+	// mean = integral/volume;
+	//
+	// potential = potential - mean;
+	// if (world->rank() == 0) printf("\tNormalized\n");
 	
 }
 
