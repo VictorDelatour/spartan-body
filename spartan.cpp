@@ -47,7 +47,7 @@ int main(int argc, char** argv){
 	project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0]);
 	if (world.rank() == 0) printf("Done.\n");
 
-	solve_potential(world, nx, ny, nz, &density[0], potential);
+	solve_potential(world, nx, ny, nz, &density[0], &potential);
 
 	// if (world.rank() == 0) printf("Potential evaluation: %f\n", potential(5.0, 5.0, 5.0));
 
