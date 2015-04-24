@@ -48,6 +48,8 @@ int main(int argc, char** argv){
 	
 	update_particles(&world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
 	
+	if (world.rank() == 0) printf("Particles updated, WHAT ARE YOU WAITING FOR!\n");
+	
 	finalize();
 	
 	return 0;
