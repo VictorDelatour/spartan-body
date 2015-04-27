@@ -48,8 +48,13 @@ int main(int argc, char** argv){
 	if (world.rank() == 0) printf("Done.\n");
 
 	solve_potential(world, nx, ny, nz, &density[0], &potential);
+	
+	// double temp;
+	// temp = potential(5.0, 5.0, 5.0);
+	// if (world.rank() == 0) printf("Eval potential %f\n", temp);
+	
 
-	update_particles(&world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, &potential, timestep);
+	// update_particles(world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, &potential, timestep);
 
 	finalize();
 	

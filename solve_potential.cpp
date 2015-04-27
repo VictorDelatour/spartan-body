@@ -24,10 +24,18 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 
 	// CORE DUMP? WHY?
 	if (world.rank() == 0) printf("Computing potential\n");
-	compute_potential(world, &rho_interp, &phi, 1e-6, 1e-8);
+	// compute_potential(world, &rho_interp, &phi, 1e-6, 1e-8);
+	//
+	// potential = &phi;
+	
+	compute_potential(world, &rho_interp, potential, 1e-6, 1e-8);
 	if (world.rank() == 0) printf("Computed...\n\n");
 	
-	potential = &phi;
+	// potential = &phi;
+	//
+	// double temp;
+	// temp = phi(5.0, 5.0, 5.0);
+	// if (world.rank() == 0) printf("Eval potential %f\n", temp);
 	
 	// if (world.rank() == 0) printf("Printing potential\n");
 	// print_potential(world, potential, 128, nx);
@@ -82,6 +90,13 @@ void compute_potential(World& world, real_function_3d* projected_density, real_f
 
 	*potential = *potential - mean;
 	if (world.rank() == 0) printf("\tNormalized\n");
+	
+
+	
+	// if (world.rank() == 0) printf("\t#YOLO FTW");
+	// real_derivative_3d Dx(world, 0), Dy(world, 1), Dz(world, 2);
+	// real_function_3d deriv_x = Dx(*potential);
+	
 	
 }
 
