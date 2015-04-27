@@ -1,7 +1,8 @@
-SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density)
+SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 	
 	IMPLICIT NONE
 	
+	INTEGER :: step
 	INTEGER, INTENT(IN) :: nx, ny, nz, nparticles
 	REAL*8, DIMENSION(nparticles) :: x, y, z, mass
 	REAL*8, DIMENSION(nx, ny, nz) :: density ! Maybe be careful with dimensions, fortran is column-major
@@ -62,6 +63,6 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density)
 		
 	end do
 	
-	CALL WRITE_DENSITY(nx, ny, nz, density)
+	CALL WRITE_DENSITY(nx, ny, nz, density, step)
 	
 END SUBROUTINE PROJECT_DENSITY

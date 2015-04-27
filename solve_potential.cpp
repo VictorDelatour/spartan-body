@@ -1,7 +1,6 @@
 #include "solve_potential.hpp"
 
-void solve_potential(World& world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d* potential){
-	
+real_function_3d solve_potential(World& world, const int& nx, const int& ny, const int& nz, real_t* density){
 	
 	real_function_3d rho_interp;
 	real_function_3d phi;
@@ -24,11 +23,11 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 
 	// CORE DUMP? WHY?
 	if (world.rank() == 0) printf("Computing potential\n");
-	// compute_potential(world, &rho_interp, &phi, 1e-6, 1e-8);
+	compute_potential(world, &rho_interp, &phi, 1e-6, 1e-8);
 	//
 	// potential = &phi;
 	
-	compute_potential(world, &rho_interp, potential, 1e-6, 1e-8);
+	// compute_potential(world, &rho_interp, potential, 1e-6, 1e-8);
 	if (world.rank() == 0) printf("Computed...\n\n");
 	
 	// potential = &phi;
@@ -41,6 +40,7 @@ void solve_potential(World& world, const int& nx, const int& ny, const int& nz, 
 	// print_potential(world, potential, 128, nx);
 	// if (world.rank() == 0) printf("Printed...\n\n");
 	
+	return phi;
 }
 
 void set_initial_parameters(const int& nx){
