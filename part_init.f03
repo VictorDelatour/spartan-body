@@ -14,7 +14,7 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, x, y, z, vx, vy, vz, mass)
 	
 	open(unit = unit_part, file = filename, status = 'old', form = 'unformatted')
 	
-	do pos = 1,5
+	do pos = 1,8
     	read(unit_part) !skip
 	end do
 	

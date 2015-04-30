@@ -2,26 +2,23 @@ SUBROUTINE GET_DIM(nx, ny, nz, nparticles)
 	
 	IMPLICIT NONE
 	
-	INTEGER :: nx, ny, nz, nparticles, unit_part, pos
-	CHARACTER(LEN = 128) :: filename
+	INTEGER :: nx, ny, nz, nparticles, unit_info, min_level
+	CHARACTER(LEN = 128) :: filename, buffer
 	
-	unit_part = 1
+	unit_info = 1
 	
-	filename = './output_00003/part_00003.out00001'
+	filename = './output_00003/info_00003.txt'
 	
-	open(unit = unit_part, file = filename, status = 'old', form = 'unformatted')
-	read(unit_part) 
-	read(unit_part) 
-	read(unit_part) nparticles
+	open(unit = unit_info, file = filename, status = 'old', form = 'formatted')
+
+	read(unit_info, '(A13, I11)')
+	read(unit_info, '(A13, I11)')
+	read(unit_info, '(A13, I11)') buffer, min_level
 	
-! 	write(*,'(a i10 a)') 'There are', nparticles, ' particles'
-	
-	nx = nparticles ** (1.0/3.0)
+	close(unit_info)
+
+	nx = 2**min_level
 	ny = nx
 	nz = nx
-	
-! 	write(*,'(a i4 i4 i4)') 'Dimensions:', nx, ny, nz
-
-! 	close(unit_part)
 	
 END SUBROUTINE GET_DIM
