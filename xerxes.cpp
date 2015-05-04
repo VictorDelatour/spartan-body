@@ -129,25 +129,13 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// if (world.rank() == 0) printf("Set...\n\n");
 	
 	// if (world.rank() == 0) printf("Build projected density\n");
-	// build_projected_density(world, nx, ny, nz, density, rho_interp);
+	build_projected_density(world, nx, ny, nz, density, rho_interp);
 	// if (world.rank() == 0) printf("Built...\n\n");
 	
-	if (world.rank() == 0) printf("\tBuild projected density\n");
 	
-	limit = 300;
-	limit = nparticles;
-	
-	for(int i(0); i < limit; ++i){
-		center[0] = x[i]; center[1] = y[i]; center[2] = z[i];
-		temp =  real_factory_3d(world).functor(new_gaussian(center));
-		// rho_interp = rho_interp + temp;
-	}
-	
-	if (world.rank() == 0) printf("\tBuilt...\n\n");
-	
-	if (world.rank() == 0) printf("\tPrinting density\n");
-	print_density(world, rho_interp, 128, nx);
-	if (world.rank() == 0) printf("\tPrinted...\n\n");
+	// if (world.rank() == 0) printf("\tPrinting density\n");
+	// print_density(world, rho_interp, 128, nx);
+	// if (world.rank() == 0) printf("\tPrinted...\n\n");
 
 	// if (world.rank() == 0) printf("Computing potential\n");
 	
