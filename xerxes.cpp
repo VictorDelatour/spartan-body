@@ -293,13 +293,6 @@ int main(int argc, char** argv){
 	
 	part_init_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
 	
-	// if (world.rank() == 0){
-	// 	for(int i(0); i < 10; ++i){
-	// 		printf("%f %f %f\n", x[i], y[i], z[i]);
-	// 	}
-	// }
-
-	
 	world.gop.fence();
 	auto init_time = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\nInitialization time: %f s\n\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(init_time - start_time).count());
