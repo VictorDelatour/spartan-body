@@ -16,6 +16,34 @@ extern "C" void get_dim_(int* nx, int* ny, int* nz, int* nparticles);
 extern "C" void part_init_(const int* nx, const int* ny, const int* nz, const int* nparticles, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, real_t* mass);
 extern "C" void project_density_(const int* nx, const int* ny, const int* nz, const int* nparticles, const real_t* x, const real_t* y, const real_t* z, real_t* mass, real_t* density, const int* step);
 
+class Gaussian : public FunctionFunctorInterface<double,3> {
+public:
+    const coord_3d center;
+    const double exponent;
+    std::vector<coord_3d> specialpt;
+
+    Gaussian(const coord_3d& center, double exponent)
+        : center(center), exponent(exponent), specialpt(1)
+    {
+        specialpt[0][0] = center[0];
+        specialpt[0][1] = center[1];
+        specialpt[0][2] = center[2];
+    }
+
+    // MADNESS will call this interface
+    double operator()(const coord_3d& x) const {
+        double sum = 0.0;
+        for (int i=0; i<3; i++) {
+            double xx = center[i]-x[i];
+            sum += xx*xx;
+        };
+        return exp(-exponent*sum);
+    }
+
+    std::vector<coord_3d> special_points() const {
+        return specialpt;
+    }
+};
 
 void set_initial_parameters(const int& nx){
 	
@@ -89,6 +117,8 @@ void print_density(World& world, const real_function_3d& projected_density, cons
 	plotvtk_data(projected_density, "density", world, filename_density, plotlo, plothi, npoints);
 	plotvtk_end<3>(world, filename_density);
 	
+	// if (world.rank() == 0) printf("Printed...\n\n");
+	
 }
 
 void print_potential(World& world, const real_function_3d& potential, const int& numpts, const int& nx){
@@ -129,7 +159,7 @@ real_function_3d solve_potential(World& world, const int& nx, const int& ny, con
 	// if (world.rank() == 0) printf("Built...\n\n");
 	
 	// if (world.rank() == 0) printf("Printing density\n");
-	// print_density(world, &rho_interp, 128, nx);
+	// print_density(world, rho_interp, 128, nx);
 	// if (world.rank() == 0) printf("Printed...\n\n");
 
 	// if (world.rank() == 0) printf("Computing potential\n");
@@ -158,42 +188,15 @@ void compute_gradient(World& world, const real_function_3d& potential, vector_re
 	
 	real_derivative_3d Dx(world, 0), Dy(world, 1), Dz(world, 2);
 	
-	// real_function_3d deriv_x = Dx(potential);
-	
-	// real_function_3d deriv_x = Dy(*potential);
-	//
 	gradient[0] = Dx(potential);
 	gradient[1] = Dy(potential);
 	gradient[2] = Dz(potential);
-	//
-	
-	// if (world.rank() == 0) printf("\tPrinting gradient norm");
-	// real_function_3d L2_norm = square(gradient[0]) + square(gradient[1]) + square(gradient[2]);
-	//
-	// const char filename_gradient[] = "data/spartan_gradient.vts";
-	//
-	// Vector<double, 3> plotlo, plothi;
-	// Vector<long, 3> npoints;
-	//
-	//
-	// for(int i(0); i < 3; ++i){
-	// 	plotlo[i] = 1;
-	// 	plothi[i] = 128;
-	// 	npoints[i] = 128;
-	// }
-	//
-	// plotvtk_begin(world, filename_gradient, plotlo, plothi, npoints);
-	// plotvtk_data(L2_norm, "gradient norm", world, filename_gradient, plotlo, plothi, npoints);
-	// plotvtk_end<3>(world, filename_gradient);
-	//
-	// if (world.rank() == 0) printf("\tGradient printed.");
+
 }
 
 static void update_velocity(const coordT& position, coordT& velocity, const real_t& time_step, vector_real_function_3d& gradient){
 	
 	for(int direction(0); direction < 3; ++direction){
-		// Maybe the gradient points to the wrong direction?
-		// Is the velocity too big?
 		velocity[direction] += gradient[direction].eval(position) * time_step;
 	}
 	
@@ -213,15 +216,9 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 	
 	vector_real_function_3d gradient(3);
 	const int upper_limit = nparticles;
-
-	// if (world.rank() == 0) printf("Updating %i of %i particles...\n", upper_limit, nparticles);
-	// if (world.rank() == 0) printf("\tComputing gradient...\n");
 	
 	compute_gradient(world, potential, gradient);
 		
-	// if (world.rank() == 0) printf("\tDone.\n");
-	// if (world.rank() == 0) printf("\tLooping over all particles... with %i processors\n", world.size());
-
 	for(int particle = world.rank(); particle < upper_limit; particle += world.size()){
 
 		// Is it really useful to create a coordT like this, for nothing? I don't think so...
@@ -288,19 +285,26 @@ int main(int argc, char** argv){
 	mass.resize(nparticles);
 	density.resize(nx*ny*nz);
 	
+	if (world.rank() == 0) printf("Dimensions: %i %i %i\n", nx, ny, nz);
+	if (world.rank() == 0) printf("Number of particles: %i\n", nparticles);
+	
 	// start_time = wall_time();
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
-
-	// if (world.rank() == 0) printf("Initializing particles...\n");
 	part_init_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
-	// if (world.rank() == 0) printf("Done.\n");
+	
+	// if (world.rank() == 0){
+	// 	for(int i(0); i < 10; ++i){
+	// 		printf("%f %f %f\n", x[i], y[i], z[i]);
+	// 	}
+	// }
+
 	
 	world.gop.fence();
 	auto init_time = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\nInitialization time: %f s\n\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(init_time - start_time).count());
 	
-	nstep = 5;
+	nstep = 3;
 	
 	for(int step(0); step < nstep; ++step){
 		
