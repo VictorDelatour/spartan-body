@@ -16,35 +16,6 @@ extern "C" void get_dim_(int* nx, int* ny, int* nz, int* nparticles);
 extern "C" void part_init_(const int* nx, const int* ny, const int* nz, const int* nparticles, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, real_t* mass);
 extern "C" void project_density_(const int* nx, const int* ny, const int* nz, const int* nparticles, const real_t* x, const real_t* y, const real_t* z, real_t* mass, real_t* density, const int* step);
 
-class Gaussian : public FunctionFunctorInterface<double,3> {
-public:
-    const coord_3d center;
-    const double exponent;
-    std::vector<coord_3d> specialpt;
-
-    Gaussian(const coord_3d& center, double exponent)
-        : center(center), exponent(exponent), specialpt(1)
-    {
-        specialpt[0][0] = center[0];
-        specialpt[0][1] = center[1];
-        specialpt[0][2] = center[2];
-    }
-
-    // MADNESS will call this interface
-    double operator()(const coord_3d& x) const {
-        double sum = 0.0;
-        for (int i=0; i<3; i++) {
-            double xx = center[i]-x[i];
-            sum += xx*xx;
-        };
-        return exp(-exponent*sum);
-    }
-
-    std::vector<coord_3d> special_points() const {
-        return specialpt;
-    }
-};
-
 void set_initial_parameters(const int& nx){
 	
 	BoundaryConditions<3> bc(BC_PERIODIC);
@@ -141,10 +112,13 @@ void print_potential(World& world, const real_function_3d& potential, const int&
 	
 }
 
-real_function_3d solve_potential(World& world, const int& nx, const int& ny, const int& nz, real_t* density){
+real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, const int& nx, const int& ny, const int& nz, const int& nparticles, real_t* density){
 	
 	real_function_3d rho_interp;
 	real_function_3d phi;
+	coord_3d center;
+	real_function_3d temp;
+	int limit;
 	
 	// if (world.rank() == 0) printf("Setup initial parameters\n");
 	set_initial_parameters(nx);
@@ -155,12 +129,25 @@ real_function_3d solve_potential(World& world, const int& nx, const int& ny, con
 	// if (world.rank() == 0) printf("Set...\n\n");
 	
 	// if (world.rank() == 0) printf("Build projected density\n");
-	build_projected_density(world, nx, ny, nz, density, rho_interp);
+	// build_projected_density(world, nx, ny, nz, density, rho_interp);
 	// if (world.rank() == 0) printf("Built...\n\n");
 	
-	// if (world.rank() == 0) printf("Printing density\n");
-	// print_density(world, rho_interp, 128, nx);
-	// if (world.rank() == 0) printf("Printed...\n\n");
+	if (world.rank() == 0) printf("\tBuild projected density\n");
+	
+	limit = 300;
+	limit = nparticles;
+	
+	for(int i(0); i < limit; ++i){
+		center[0] = x[i]; center[1] = y[i]; center[2] = z[i];
+		temp =  real_factory_3d(world).functor(new_gaussian(center));
+		// rho_interp = rho_interp + temp;
+	}
+	
+	if (world.rank() == 0) printf("\tBuilt...\n\n");
+	
+	if (world.rank() == 0) printf("\tPrinting density\n");
+	print_density(world, rho_interp, 128, nx);
+	if (world.rank() == 0) printf("\tPrinted...\n\n");
 
 	// if (world.rank() == 0) printf("Computing potential\n");
 	
@@ -194,21 +181,23 @@ void compute_gradient(World& world, const real_function_3d& potential, vector_re
 
 }
 
-static void update_velocity(const coordT& position, coordT& velocity, const real_t& time_step, vector_real_function_3d& gradient){
-	
-	for(int direction(0); direction < 3; ++direction){
-		velocity[direction] += gradient[direction].eval(position) * time_step;
-	}
-	
-}
 
-static void update_position(coordT& position, const coordT& velocity, const real_t& time_step){
-	
-	for(int axis(0); axis < 3; ++axis){
-		position[axis] += velocity[axis] * time_step;
-	}
-	
-}
+// static void update_velocity(const coordT& position, coordT& velocity, const real_t& time_step, vector_real_function_3d& gradient){
+//
+// 	for(int direction(0); direction < 3; ++direction){
+// 		velocity[direction] += gradient[direction].eval(position) * time_step;
+// 	}
+//
+// }
+//
+// static void update_position(coordT& position, const coordT& velocity, const real_t& time_step){
+//
+// 	for(int axis(0); axis < 3; ++axis){
+// 		position[axis] += velocity[axis] * time_step;
+// 	}
+//
+// }
+
 
 void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, const int& nparticles, const real_function_3d& potential, const real_t& timestep){
 	
@@ -305,7 +294,7 @@ int main(int argc, char** argv){
 		auto step_start_time = std::chrono::high_resolution_clock::now();
 		
 		//
-		project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
+		// project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
 		//
 		
 		world.gop.fence();
@@ -313,7 +302,8 @@ int main(int argc, char** argv){
 		if (world.rank() == 0) printf("\tDensity %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_density_time - step_start_time).count());
 	
 		//
-		real_function_3d potential = solve_potential(world, nx, ny, nz, &density[0]);
+		// real_function_3d potential = solve_potential(world, nx, ny, nz, &density[0]);
+		real_function_3d potential = solve_potential(world, &x[0], &y[0], &z[0], nx, ny, nz, nparticles, &density[0]);
 		//
 		
 		world.gop.fence();
