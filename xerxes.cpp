@@ -288,6 +288,7 @@ int main(int argc, char** argv){
 		world.gop.fence();
 		auto step_density_time = std::chrono::high_resolution_clock::now();
 		if (world.rank() == 0) printf("\tDensity %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_density_time - step_start_time).count());
+
 	
 		//
 		// real_function_3d potential = solve_potential(world, nx, ny, nz, &density[0]);
