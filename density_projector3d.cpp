@@ -11,6 +11,13 @@ nx(nx), ny(ny), nz(nz), data(data){
 	// 	}
 	// }
 	
+	for(int i(0); i < 2; ++i){
+		gaussian_filtering(Axis::X);
+		gaussian_filtering(Axis::Y);
+		gaussian_filtering(Axis::Z);
+	}	
+
+	
 	// Filtering along rows, the space between two consecutive elements is simply 1 (adjacent)
 	inplace_filtering(Axis::X);
 	// Filtering along columns, the space between two consecutive elements is nx
@@ -118,6 +125,68 @@ int DensityProjector::inplace_filtering(Axis axis){
 	
 }
 
+int DensityProjector::gaussian_filtering(Axis axis){
+	
+	int size_dim1, size_dim2, shift_dim1, shift_dim2, process_size, access_shift;
+	int ij_shift;
+	
+	switch(axis){
+		case Axis::X: {
+			size_dim1 = ny;
+			size_dim2 = nz;
+			shift_dim1 = nx;
+			shift_dim2 = nx*ny;
+			process_size = nx;
+			access_shift = 1;
+			break;
+		}
+		case Axis::Y:{
+			size_dim1 = nx;
+			size_dim2 = nz;
+			shift_dim1 = 1;
+			shift_dim2 = nx*ny;
+			process_size = ny;
+			access_shift = nx;
+			break;
+		}
+		case Axis::Z:{
+			size_dim1 = nx;
+			size_dim2 = ny;
+			shift_dim1 = 1;
+			shift_dim2 = nx;
+			process_size = nz;
+			access_shift = nx*ny;
+			break;
+		}
+	}
+	
+	real_t first, last, prev, temp, p;
+	p = .25;
+	
+	for(int i(0); i < size_dim1; ++i){
+		for(int j(0); j < size_dim2; ++j){
+			ij_shift = i * shift_dim1 + j * shift_dim2;
+			
+			first = data[ij_shift];
+			last = data[ij_shift + access_shift * (process_size-1)];
+			
+			prev = p * (last + 2*first + data[ij_shift + access_shift]);
+			
+			for(int k(1); k < process_size - 1; ++k ){
+				temp = p * (data[ij_shift + (k-1)*access_shift] + 2*data[ij_shift + k*access_shift] + data[ij_shift + (k+1)*access_shift]);
+				data[ij_shift + (k-1)*access_shift] = prev;
+				prev = temp;
+			}
+			
+			data[ij_shift + access_shift * (process_size-1)] = p * (data[ij_shift + access_shift * (process_size-2)] + 2*data[ij_shift + access_shift * (process_size-1)] + first);
+			
+		}
+	}
+	
+	return 0;
+	
+}
+
 int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<double>& weights, std::vector<int>& position) const{
 	
 	int pos, index, numel;
@@ -144,7 +213,6 @@ int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3
 		}else if(position[k] >= numel){
 			position[k] -= numel-1;
 		}
-
 	}
 	
 	return 0;

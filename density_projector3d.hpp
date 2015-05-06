@@ -27,6 +27,8 @@ private:
 
 	int inplace_filtering(Axis axis);
 	
+	int gaussian_filtering(Axis axis);
+	
 	int get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<real_t>& weights, std::vector<int>& position) const;
 	
 	///
