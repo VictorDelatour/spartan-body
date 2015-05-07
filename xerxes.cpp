@@ -141,18 +141,41 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	
 	
 	// if (world.rank() == 0) printf("\tPrinting density\n");
-	// print_density(world, rho_interp, 128, nx);
+	print_density(world, rho_interp, 128, nx);
 	// if (world.rank() == 0) printf("\tPrinted...\n\n");
+	
+	double average, variance;
+	average = rho_interp.trace();
+	average /= FunctionDefaults<3>::get_cell_volume();
+	if (world.rank() == 0) printf("\n\tDensity");
+	if (world.rank() == 0) printf("\n\t\tAverage: %e\n", average);
+	
+	real_function_3d normalized_density;
+	normalized_density = rho_interp - average;
+	
+	variance = normalized_density.norm2();
+	if (world.rank() == 0) printf("\t\tVariance: %f\n", variance);
+	if (world.rank() == 0) printf("\t\tSD: %f\n\n", sqrt(variance));
 
 	// if (world.rank() == 0) printf("Computing potential\n");
 	
-	// compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
+	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
 	
 	// //
 	// // potential = &phi;
 	//
 	// compute_potential(world, rho_interp, potential, 1e-6, 1e-8);
 	// if (world.rank() == 0) printf("Computed...\n\n");
+	
+	real_function_3d normalized_phi;
+	average = phi.trace();
+	average /= FunctionDefaults<3>::get_cell_volume();
+	if (world.rank() == 0) printf("\n\tPotential");
+	if (world.rank() == 0) printf("\n\t\tAverage: %e\n", average);
+	
+	// variance = normalized_phi.norm2();
+	// if (world.rank() == 0) printf("\t\tVariance: %f\n", variance);
+	// if (world.rank() == 0) printf("\t\tSD: %f\n\n", sqrt(variance));
 	
 	//
 	// double temp;
@@ -162,6 +185,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// if (world.rank() == 0) printf("Printing potential\n");
 	// print_potential(world, potential, 128, nx);
 	// if (world.rank() == 0) printf("Printed...\n\n");	
+	print_potential(world, phi, 128, nx);
 	
 	return phi;
 }

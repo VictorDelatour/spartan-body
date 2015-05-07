@@ -11,7 +11,9 @@ nx(nx), ny(ny), nz(nz), data(data){
 	// 	}
 	// }
 	
-	for(int i(0); i < 2; ++i){
+	int num_blur(0);
+	
+	for(int i(0); i < num_blur; ++i){
 		gaussian_filtering(Axis::X);
 		gaussian_filtering(Axis::Y);
 		gaussian_filtering(Axis::Z);
