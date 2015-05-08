@@ -3,6 +3,10 @@
 DensityProjector::DensityProjector(const int nx, const int ny, const int nz, double* data):
 nx(nx), ny(ny), nz(nz), data(data){
 	
+	// counter = ATOMIC_VAR_INIT(0);
+	// ++counter;
+	counter = new AtomicCounter();
+	
 	// int temp(2);
 	//
 	// for(int i(0); i < temp; ++i){
@@ -10,12 +14,26 @@ nx(nx), ny(ny), nz(nz), data(data){
 	// 		printf("rho[%d, %d, 1] = %f \n", i, j, data[i + j*nx]);
 	// 	}
 	// }
+	std::string filename("data/cube128_1gaussian_1_1.bin");
 	
-	for(int i(0); i < 2; ++i){
-		gaussian_filtering(Axis::X);
-		gaussian_filtering(Axis::Y);
-		gaussian_filtering(Axis::Z);
-	}	
+	
+	std::ifstream file;
+	
+	file.open(filename, std::ios::in | std::ios::binary);
+	
+  	if (file.is_open()){
+    	file.read(reinterpret_cast<char*>(&data[0]), nx * ny * nz * (sizeof data[0]) );
+   	} else{
+   		std::cout << "File " << filename <<" not opened" << std::endl;
+   	}
+	
+	// const int num_blur(0);
+	//
+	// for(int i(0); i < num_blur ; ++i){
+	// 	gaussian_filtering(Axis::X);
+	// 	gaussian_filtering(Axis::Y);
+	// 	gaussian_filtering(Axis::Z);
+	// }	
 
 	
 	// Filtering along rows, the space between two consecutive elements is simply 1 (adjacent)
@@ -28,10 +46,28 @@ nx(nx), ny(ny), nz(nz), data(data){
 }
 
 DensityProjector::~DensityProjector(){
-	
+	// get_counter();
+	printf("Number of accesses %i\n", counter->get());
+}
+
+void DensityProjector::increment_counter(){
+	// ++counter;
+}
+
+void DensityProjector::get_counter(){
+	// std::cout << "Number of accesses: " << counter.load() << std::endl;
+	// printf("Number of accesses %i\n", counter.load());
 }
 
 double DensityProjector::operator()(const madness::coord_3d& x) const{
+	
+	// increment_counter();
+	// get_counter();
+	counter->increment();
+	
+	
+	
+	// ++counter;
 	
 	// Probably some errors due to the fact that we use positions from 1 to 128, stored at positions 0 to 127
 	// Also, the data is stored "FORTRAN-style", i.e. column-major, this should be taken into account!

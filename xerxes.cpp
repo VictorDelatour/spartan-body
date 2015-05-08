@@ -16,6 +16,22 @@ extern "C" void get_dim_(int* nx, int* ny, int* nz, int* nparticles);
 extern "C" void part_init_(const int* nx, const int* ny, const int* nz, const int* nparticles, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, real_t* mass);
 extern "C" void project_density_(const int* nx, const int* ny, const int* nz, const int* nparticles, const real_t* x, const real_t* y, const real_t* z, real_t* mass, real_t* density, const int* step);
 
+// struct AtomicCounter {
+//     std::atomic<int> value;
+//
+//     void increment(){
+//         ++value;
+//     }
+//
+//     void decrement(){
+//         --value;
+//     }
+//
+//     int get(){
+//         return value.load();
+//     }
+// };
+
 class Gaussian : public FunctionFunctorInterface<double,3> {
 public:
     const coord_3d center;
@@ -29,15 +45,22 @@ public:
         specialpt[0][0] = center[0];
         specialpt[0][1] = center[1];
         specialpt[0][2] = center[2];
+		
+		counter = new AtomicCounter();
     }
+	
 
     // MADNESS will call this interface
     double operator()(const coord_3d& x) const {
+		counter->increment();
+		printf("Number of accesses %i\n", counter->get());
+		
         double sum = 0.0;
         for (int i=0; i<3; i++) {
             double xx = center[i]-x[i];
             sum += xx*xx;
         };
+		
         return coefficient*exp(-exponent*sum);
     }
 
@@ -50,6 +73,9 @@ public:
     std::vector<coord_3d> special_points() const {
         return specialpt;
     }
+	
+private:
+	AtomicCounter* counter;
 };
 
 real_functor_3d new_gaussian(const coord_3d& origin) {
@@ -79,57 +105,6 @@ void set_projection_precision(const int& order, const double& threshold){
 	
 	FunctionDefaults<3>::set_k(order);
 	FunctionDefaults<3>::set_thresh(threshold);
-	
-}
-
-void build_projected_density(World& world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d& projected_density){
-	
-	double access_value;
-	real_functor_3d density_functor;
-	coord_3d origin;
-	origin[0] = .5 * double(nx-1) + 1;
-	origin[1] = .5 * double(ny-1) + 1;
-	origin[2] = .5 * double(nz-1) + 1;
-	
-	auto start_time = std::chrono::high_resolution_clock::now();
-	// density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
-	density_functor = real_functor_3d(new_gaussian(origin));
-	auto step_coefficients  = std::chrono::high_resolution_clock::now();
-	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
-	
-	
-	projected_density = real_factory_3d(world).functor(density_functor);
-	auto step_projection  = std::chrono::high_resolution_clock::now();
-	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
-	
-	access_value = projected_density(origin);
-	
-	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], origin[2], access_value);
-}
-
-void compute_potential(World& world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
-	
-	double integral, volume, mean;
-
-	// if (world.rank() == 0) printf("\tProjecting potential\n");
-	
-	real_convolution_3d coulomb_operator = CoulombOperator(world, precision, threshold);
-	
-	potential = coulomb_operator(projected_density);
-
-	
-	// if (world.rank() == 0) printf("\tProjected potential\n");
-
-	integral = (potential).trace();
-	volume = FunctionDefaults<3>::get_cell_volume();
-	mean = integral/volume;
-
-	potential = potential - mean;
-	// if (world.rank() == 0) printf("\tNormalized\n");
-	
-	// if (world.rank() == 0) printf("\t#YOLO FTW");
-	// real_derivative_3d Dx(world, 0), Dy(world, 1), Dz(world, 2);
-	// real_function_3d deriv_x = Dx(*potential);
 	
 }
 
@@ -164,6 +139,57 @@ void print_density(World& world, const real_function_3d& projected_density, cons
 	// if (world.rank() == 0) printf("Printed...\n\n");
 	
 }
+
+void build_projected_density(World& world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d& projected_density){
+	
+	double access_value;
+	real_functor_3d density_functor;
+	coord_3d origin;
+	origin[0] = .5 * double(nx-1) + 1;
+	origin[1] = .5 * double(ny-1) + 1;
+	origin[2] = .5 * double(nz-1) + 1;
+	
+	auto start_time = std::chrono::high_resolution_clock::now();
+	// density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
+	density_functor = real_functor_3d(new_gaussian(origin));
+	auto step_coefficients  = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
+	
+	
+	projected_density = real_factory_3d(world).functor(density_functor);
+	auto step_projection  = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
+	
+	access_value = projected_density(origin);
+	
+	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], origin[2], access_value);
+	
+	print_density(world, projected_density, 128, nx);
+}
+
+void compute_potential(World& world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
+	
+	double integral, volume, mean;
+
+	// if (world.rank() == 0) printf("\tProjecting potential\n");
+	
+	real_convolution_3d coulomb_operator = CoulombOperator(world, precision, threshold);
+	
+	potential = coulomb_operator(projected_density);
+
+	
+	// if (world.rank() == 0) printf("\tProjected potential\n");
+
+	integral = (potential).trace();
+	volume = FunctionDefaults<3>::get_cell_volume();
+	mean = integral/volume;
+
+	potential = potential - mean;
+	// if (world.rank() == 0) printf("\tNormalized\n");
+	
+}
+
+
 
 void print_potential(World& world, const real_function_3d& potential, const int& numpts, const int& nx){
 	
@@ -212,7 +238,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 
 	// if (world.rank() == 0) printf("Computing potential\n");
 	
-	// compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
+	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
 	
 	// //
 	// // potential = &phi;
@@ -226,7 +252,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// if (world.rank() == 0) printf("Eval potential %f\n", temp);
 	
 	// if (world.rank() == 0) printf("Printing potential\n");
-	// print_potential(world, potential, 128, nx);
+	print_potential(world, phi, 128, nx);
 	// if (world.rank() == 0) printf("Printed...\n\n");	
 	
 	return phi;
