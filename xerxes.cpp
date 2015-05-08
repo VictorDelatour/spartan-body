@@ -2,6 +2,8 @@
 #include <cstdio>
 #include <cstring>
 #include <chrono>
+#include <iostream>
+#include <fstream>
 
 #include <madness/mra/mra.h>
 
@@ -53,11 +55,12 @@ public:
     // MADNESS will call this interface
     double operator()(const coord_3d& x) const {
 		counter->increment();
-		printf("Number of accesses %i\n", counter->get());
+		// printf("Number of accesses %i\n", counter->get());
 		
         double sum = 0.0;
         for (int i=0; i<3; i++) {
             double xx = center[i]-x[i];
+			xx *= 10./128.; // Stupid ratio... 
             sum += xx*xx;
         };
 		
@@ -112,15 +115,11 @@ void print_density(World& world, const real_function_3d& projected_density, cons
 	
 	const char filename_density[] = "data/spartan_density.vts";
 	
-	double access_value;
 	coord_3d origin;
 	origin[0] = .5*(double(nx)-1) + 1;
 	origin[1] = .5*(double(nx)-1) + 1;
 	origin[2] = .5*(double(nx)-1) + 1;
 	
-	access_value = projected_density(origin);
-	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], origin[2], access_value);
-	if (world.rank() == 0) printf("\tnx = %i\n", nx);
 	
 	Vector<double, 3> plotlo, plothi;
 	Vector<long, 3> npoints;
@@ -149,6 +148,31 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	origin[1] = .5 * double(ny-1) + 1;
 	origin[2] = .5 * double(nz-1) + 1;
 	
+	// Just to test shit up...
+	std::ofstream file_line, file_line_exact;
+	file_line.open("data/line_numerical.dat");
+	file_line_exact.open("data/line_analytical.dat");
+	
+	coord_3d point;
+	int npoints(1e3);
+	double h = (double(nz)-1.0)/double(npoints);
+	double value_at_point;
+	
+	
+	DensityProjector numerical_gaussian(nx, ny, nz, &density[0]);
+	Gaussian analytical_gaussian(origin, 1.0, 1.0);
+	
+	point[0] = origin[0];
+	point[1] = origin[1];
+	for(int i(0); i < npoints; ++i ){
+		point[2] = h * i + 1;
+		value_at_point = numerical_gaussian(point);
+		file_line << value_at_point << "\n";
+		
+		value_at_point = analytical_gaussian(point);
+		file_line_exact << value_at_point << "\n";
+	}
+	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	// density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
 	density_functor = real_functor_3d(new_gaussian(origin));
@@ -159,12 +183,21 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	projected_density = real_factory_3d(world).functor(density_functor);
 	auto step_projection  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
+
+	point[2] = origin[2] - 5*h;
+	value_at_point = analytical_gaussian(point);
+	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
+	value_at_point = projected_density(point);
+	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
+	value_at_point = numerical_gaussian(point);
+	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
 	
-	access_value = projected_density(origin);
-	
-	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], origin[2], access_value);
 	
 	print_density(world, projected_density, 128, nx);
+	
+	file_line.close();
+	file_line_exact.close();
+
 }
 
 void compute_potential(World& world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
@@ -188,8 +221,6 @@ void compute_potential(World& world, const real_function_3d& projected_density, 
 	// if (world.rank() == 0) printf("\tNormalized\n");
 	
 }
-
-
 
 void print_potential(World& world, const real_function_3d& potential, const int& numpts, const int& nx){
 	
