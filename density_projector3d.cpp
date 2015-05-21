@@ -27,6 +27,10 @@ nx(nx), ny(ny), nz(nz), data(data){
    		std::cout << "File " << filename <<" not opened" << std::endl;
    	}
 	
+	// for(int i(0); i < nx * ny * nz; ++i){
+	// 	data[i] += 1;
+	// }
+	
 	// const int num_blur(0);
 	//
 	// for(int i(0); i < num_blur ; ++i){
@@ -47,7 +51,7 @@ nx(nx), ny(ny), nz(nz), data(data){
 
 DensityProjector::~DensityProjector(){
 	// get_counter();
-	printf("Number of accesses %i\n", counter->get());
+	// printf("Number of accesses %i\n", counter->get());
 }
 
 void DensityProjector::increment_counter(){
@@ -64,6 +68,8 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 	// increment_counter();
 	// get_counter();
 	counter->increment();
+	// printf("Number of accesses %i\n", counter->get());
+	
 	
 	
 	
@@ -259,9 +265,9 @@ int DensityProjector::get_coef(real_t *start, const int numel, const int shift){
 	const double z1(sqrt(3)-2), tolerance(1e-6);
 	const double lambda(6.);
 	
-	start[0] *= lambda;
-	start[0] = get_first_causal(&start[0], numel, shift, tolerance);
 	
+	start[0] = get_first_causal(&start[0], numel, shift, tolerance);
+	start[0] *= lambda;
 	
 	for(int k(1); k < numel; ++k){
 		start[k*shift] *= lambda;

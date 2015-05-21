@@ -64,7 +64,7 @@ public:
             sum += xx*xx;
         };
 		
-        return coefficient*exp(-exponent*sum);
+        return 1.0 + coefficient*exp(-exponent*sum);
     }
 
     // By default, adaptive projection into the spectral element basis
@@ -168,14 +168,38 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 		point[2] = h * i + 1;
 		value_at_point = numerical_gaussian(point);
 		file_line << value_at_point << "\n";
-		
+
 		value_at_point = analytical_gaussian(point);
 		file_line_exact << value_at_point << "\n";
 	}
 	
+	auto start_meas_time = std::chrono::high_resolution_clock::now();
+	
+	point[0] = origin[0];
+	point[1] = origin[1];
+	for(int i(0); i < npoints; ++i ){
+		point[2] = h * i + 1;
+		value_at_point = numerical_gaussian(point);
+	}
+	
+	auto numerical_time = std::chrono::high_resolution_clock::now();
+	
+	point[0] = origin[0];
+	point[1] = origin[1];
+	for(int i(0); i < npoints; ++i ){
+		point[2] = h * i + 1;
+		value_at_point = analytical_gaussian(point);
+	}
+	
+	auto analytical_time = std::chrono::high_resolution_clock::now();
+	
+	if (world.rank() == 0) printf("%i calls to  numerical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
+	if (world.rank() == 0) printf("%i calls to analytical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(analytical_time - numerical_time).count());
+	
+	
 	auto start_time = std::chrono::high_resolution_clock::now();
-	// density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
-	density_functor = real_functor_3d(new_gaussian(origin));
+	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
+	// density_functor = real_functor_3d(new_gaussian(origin));
 	auto step_coefficients  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
 	
@@ -192,8 +216,13 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	value_at_point = numerical_gaussian(point);
 	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
 	
+	auto printing_step  = std::chrono::high_resolution_clock::now();
 	
 	print_density(world, projected_density, 128, nx);
+	
+	auto printing_end = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(printing_end - printing_step).count());
+	
 	
 	file_line.close();
 	file_line_exact.close();
