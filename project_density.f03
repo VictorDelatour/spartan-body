@@ -17,14 +17,6 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 	INTEGER :: ierror
 	
 	
-	
-! 	threshold = 1.5e-6
-	threshold = 0.0
-
-! 	write(*,*) "Threshold is ", threshold
-
-	mass = 1.0
-	
 	do particle = 1, nparticles
 		
 		idx = int( x(particle) + 0.5 )
@@ -74,18 +66,7 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 		
 	end do
 	
-	do idx = 1, nx
-		do idy = 1, ny
-			do idz = 1, nz
-				
-				if (density(idx, idy, idz) <= threshold) then
-					density(idx, idy, idz) = 0
-				end if
-				
-			end do
-		end do
-	end do
-	
+		
 	CALL WRITE_DENSITY(nx, ny, nz, density, step)
 	
 END SUBROUTINE PROJECT_DENSITY

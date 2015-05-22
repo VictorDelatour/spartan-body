@@ -1,6 +1,12 @@
 #include <madness/mra/mra.h>
-#include <vector>
 #include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iostream>
+#include <vector>
+
 
 typedef double real_t;
 
@@ -35,6 +41,8 @@ public:
 	
 	const int get_counter() const;
 	void reset_counter();
+	
+	void test_performance(const madness::coord_3d& x, const int& npoints);
 	
 	
 	

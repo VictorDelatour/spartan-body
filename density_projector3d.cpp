@@ -42,6 +42,62 @@ void DensityProjector::reset_counter(){
 	counter->reset();
 }
 
+void DensityProjector::test_performance(const madness::coord_3d& x, const int& npoints){
+	
+	double 	returnvalue;
+	double  interx, intery;			// Temporary variable to store the interpolated values along x and y axis
+	int 	disp;					// Position
+
+	std::vector<double> xweights(4);
+	std::vector<double> yweights(4);
+	std::vector<double> zweights(4);
+
+	std::vector<int> xpositions(4);
+	std::vector<int> ypositions(4);
+	std::vector<int> zpositions(4);
+
+
+	get_weights_and_position(Axis::X, x, xweights, xpositions);
+	get_weights_and_position(Axis::Y, x, yweights, ypositions);
+	get_weights_and_position(Axis::Z, x, zweights, zpositions);
+	
+	auto start_meas_time = std::chrono::high_resolution_clock::now();
+	
+	printf("xweights = (%f, %f, %f, %f)\n", xweights[0], xweights[1], xweights[2], xweights[3]);
+	printf("yweights = (%f, %f, %f, %f)\n", yweights[0], yweights[1], yweights[2], yweights[3]);
+	printf("zweights = (%f, %f, %f, %f)\n", zweights[0], zweights[1], zweights[2], zweights[3]);
+
+	for(int iter(0); iter < npoints; ++iter){
+		
+		returnvalue = 0.0;
+
+		for(int k(0); k <= 3; ++k){
+
+			intery = 0.0; 
+
+			for(int j(0); j <= 3; ++j){
+
+				interx = 0.0;
+
+				for(int i(0); i <= 3; ++i){
+					disp = xpositions[i] + (ypositions[j] + zpositions[k]*ny)*nx; // Position
+					interx += xweights[i] * data[disp];
+				}
+				intery += yweights[j] * interx;
+			}
+			returnvalue += zweights[k] * intery;
+		}
+		
+	}
+	
+	printf("Return value = %e\n", returnvalue);
+	
+	auto numerical_time = std::chrono::high_resolution_clock::now();
+
+	printf("Performance test for %i points: %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
+	
+}
+
 double DensityProjector::operator()(const madness::coord_3d& x) const{
 	
 	counter->increment();
@@ -77,7 +133,7 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 			interx = 0.0; // Interpolated value along x-axis
 
 			for(int i(0); i <= 3; ++i){
-				disp = xpositions[i] + ypositions[j]*nx + zpositions[k]*nx*ny; // Position
+				disp = xpositions[i] + (ypositions[j] + zpositions[k]*ny)*nx; // Position
 
 				interx += xweights[i] * data[disp];
 				// interx += xweights[i];
