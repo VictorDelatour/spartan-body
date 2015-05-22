@@ -3,43 +3,21 @@
 DensityProjector::DensityProjector(const int nx, const int ny, const int nz, double* data):
 nx(nx), ny(ny), nz(nz), data(data){
 	
-	// counter = ATOMIC_VAR_INIT(0);
-	// ++counter;
 	counter = new AtomicCounter();
 	
-	// int temp(2);
+	// std::string filename("data/cube128_1gaussian_1_1.bin");
 	//
-	// for(int i(0); i < temp; ++i){
-	// 	for(int j(0); j < temp; ++j){
-	// 		printf("rho[%d, %d, 1] = %f \n", i, j, data[i + j*nx]);
-	// 	}
-	// }
-	std::string filename("data/cube128_1gaussian_1_1.bin");
-	
-	
-	std::ifstream file;
-	
-	file.open(filename, std::ios::in | std::ios::binary);
-	
-  	if (file.is_open()){
-    	file.read(reinterpret_cast<char*>(&data[0]), nx * ny * nz * (sizeof data[0]) );
-   	} else{
-   		std::cout << "File " << filename <<" not opened" << std::endl;
-   	}
-	
-	// for(int i(0); i < nx * ny * nz; ++i){
-	// 	data[i] += 1;
-	// }
-	
-	// const int num_blur(0);
+	// std::ifstream file;
 	//
-	// for(int i(0); i < num_blur ; ++i){
-	// 	gaussian_filtering(Axis::X);
-	// 	gaussian_filtering(Axis::Y);
-	// 	gaussian_filtering(Axis::Z);
-	// }	
+	// file.open(filename, std::ios::in | std::ios::binary);
+	//
+	//   	if (file.is_open()){
+	//     	file.read(reinterpret_cast<char*>(&data[0]), nx * ny * nz * (sizeof data[0]) );
+	//    	} else{
+	//    		std::cout << "File " << filename <<" not opened" << std::endl;
+	//    	}
+	//
 
-	
 	// Filtering along rows, the space between two consecutive elements is simply 1 (adjacent)
 	inplace_filtering(Axis::X);
 	// Filtering along columns, the space between two consecutive elements is nx
@@ -47,78 +25,84 @@ nx(nx), ny(ny), nz(nz), data(data){
 	// Filtering along slabs, the space between two consecutive elements is the nx*ny plane
 	inplace_filtering(Axis::Z);
 	
+	
 }
 
 DensityProjector::~DensityProjector(){
 	// get_counter();
 	// printf("Number of accesses %i\n", counter->get());
+	delete data;
+	delete counter;
 }
 
-void DensityProjector::increment_counter(){
-	// ++counter;
+const int DensityProjector::get_counter() const{
+	return counter->get();
 }
-
-void DensityProjector::get_counter(){
-	// std::cout << "Number of accesses: " << counter.load() << std::endl;
-	// printf("Number of accesses %i\n", counter.load());
+void DensityProjector::reset_counter(){
+	counter->reset();
 }
 
 double DensityProjector::operator()(const madness::coord_3d& x) const{
 	
-	// increment_counter();
-	// get_counter();
 	counter->increment();
-	// printf("Number of accesses %i\n", counter->get());
-	
-	
-	
-	
-	// ++counter;
-	
-	// Probably some errors due to the fact that we use positions from 1 to 128, stored at positions 0 to 127
-	// Also, the data is stored "FORTRAN-style", i.e. column-major, this should be taken into account!
-		
-	double 	returnvalue;						
+
+	double 	returnvalue;
 	double  interx, intery;			// Temporary variable to store the interpolated values along x and y axis
-	int 	disp;					// Position 
-	
+	int 	disp;					// Position
+
 	std::vector<double> xweights(4);
 	std::vector<double> yweights(4);
 	std::vector<double> zweights(4);
-	
+
 	std::vector<int> xpositions(4);
 	std::vector<int> ypositions(4);
 	std::vector<int> zpositions(4);
 
-	
+
 	get_weights_and_position(Axis::X, x, xweights, xpositions);
 	get_weights_and_position(Axis::Y, x, yweights, ypositions);
 	get_weights_and_position(Axis::Z, x, zweights, zpositions);
-	
+
 	//printf("Weights %f\t %f\t %f\t %f\n", xweights[0], xweights[1], xweights[2], xweights[3]);
-	
+
 	returnvalue = 0.0;
-	
+
 	// Actually compute the value
 	for(int k(0); k <= 3; ++k){
-	
+
 		intery = 0.0; // Interpolated value along x-axis
-	
+
 		for(int j(0); j <= 3; ++j){
-		
+
 			interx = 0.0; // Interpolated value along x-axis
-		
+
 			for(int i(0); i <= 3; ++i){
 				disp = xpositions[i] + ypositions[j]*nx + zpositions[k]*nx*ny; // Position
+
 				interx += xweights[i] * data[disp];
+				// interx += xweights[i];
 			}
-		
+
+
+			// if(std::abs(interx - 1.0) > 1e-14){
+			// 	printf("\n interx is not 1, value is %f and error is %e\n", interx, std::abs(interx - 1.0));
+			// 	// exit(0);
+			// }
+			
+			
+			
 			intery += yweights[j] * interx;
+			// intery should be one
 		}
 		returnvalue += zweights[k] * intery;
 	}
-	
+
 	//printf("rho(%f, %f, %f) = %f\n",x[0], x[1], x[2], returnvalue);
+	
+	// if(std::abs(returnvalue - 1.0) > 1e-14){
+	// 	printf("\nReturnvalue is not 1, value is %f and error is %e", returnvalue, std::abs(returnvalue - 1.0));
+	// }
+	//
 	return returnvalue;
 }
 
@@ -246,6 +230,10 @@ int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3
 	weights[2] = 2./3. - .5 * (1. - alpha) * (1. - alpha) * (1. + alpha);
 	weights[3] = 1./6. * alpha * alpha * alpha;
 	
+	if (std::abs(weights[0] + weights[1] + weights[2] + weights[3] - 1.0) > 1e-13 ){
+		printf("\nSum of weights is not equal to 1\n\n");
+	}
+	
 	for(int k(0); k <= 3; ++k){
 		
 		position[k] = index - 1 + k;
@@ -262,7 +250,7 @@ int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3
 
 int DensityProjector::get_coef(real_t *start, const int numel, const int shift){
 	
-	const double z1(sqrt(3)-2), tolerance(1e-6);
+	const double z1(sqrt(3)-2), tolerance(1e-15);
 	const double lambda(6.);
 	
 	
@@ -291,13 +279,19 @@ real_t DensityProjector::get_first_causal(const real_t *start, const int numel, 
 	double sum(start[0]); // s(0)*z_1^0 = s(0)
 	double zn(z1);
 	
-	if(k0 < numel){
-		for(int i(1); i < k0; ++i){
-			sum += zn * start[i * shift];
-			zn *= z1;
-		}
+	const int num_sum = ( k0 < numel ? k0 : numel);
+	
+	for(int i(1); i < num_sum; ++i){
+		sum += zn * start[i * shift];
+		zn *= z1;
 	}
-
+	
+	// if(k0 < numel){
+	// 	for(int i(1); i < k0; ++i){
+	// 		sum += zn * start[i * shift];
+	// 		zn *= z1;
+	// 	}
+	// }
 	// Add computation for "complete" loop
 	
 	

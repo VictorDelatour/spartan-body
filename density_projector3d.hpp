@@ -18,6 +18,10 @@ struct AtomicCounter {
     int get(){
         return value.load();
     }
+	
+	void reset(){
+		value = 0;
+	}
 };
 
 class DensityProjector: public madness::FunctionFunctorInterface<double,3>{
@@ -28,6 +32,9 @@ public:
 	~DensityProjector();
 	
 	double operator()(const madness::coord_3d& x) const;
+	
+	const int get_counter() const;
+	void reset_counter();
 	
 	
 	
@@ -54,10 +61,6 @@ private:
 	int gaussian_filtering(Axis axis);
 	
 	int get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<real_t>& weights, std::vector<int>& position) const;
-	
-	void increment_counter();
-	
-	void get_counter();
 	
 	///
 	/// @brief 	Transforms \a start into cubic B-spline interpolation coefficients

@@ -22,6 +22,8 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 	threshold = 0.0
 
 ! 	write(*,*) "Threshold is ", threshold
+
+	mass = 1.0
 	
 	do particle = 1, nparticles
 		

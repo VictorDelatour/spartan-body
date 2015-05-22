@@ -18,22 +18,6 @@ extern "C" void get_dim_(int* nx, int* ny, int* nz, int* nparticles);
 extern "C" void part_init_(const int* nx, const int* ny, const int* nz, const int* nparticles, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, real_t* mass);
 extern "C" void project_density_(const int* nx, const int* ny, const int* nz, const int* nparticles, const real_t* x, const real_t* y, const real_t* z, real_t* mass, real_t* density, const int* step);
 
-// struct AtomicCounter {
-//     std::atomic<int> value;
-//
-//     void increment(){
-//         ++value;
-//     }
-//
-//     void decrement(){
-//         --value;
-//     }
-//
-//     int get(){
-//         return value.load();
-//     }
-// };
-
 class Gaussian : public FunctionFunctorInterface<double,3> {
 public:
     const coord_3d center;
@@ -55,16 +39,16 @@ public:
     // MADNESS will call this interface
     double operator()(const coord_3d& x) const {
 		counter->increment();
-		// printf("Number of accesses %i\n", counter->get());
 		
-        double sum = 0.0;
-        for (int i=0; i<3; i++) {
-            double xx = center[i]-x[i];
-			xx *= 10./128.; // Stupid ratio... 
-            sum += xx*xx;
-        };
-		
-        return 1.0 + coefficient*exp(-exponent*sum);
+		double sum = 0.0;
+		for (int i=0; i<3; i++) {
+			double xx = center[i]-x[i];
+			xx *= 10./128.; // Stupid ratio...
+			sum += xx*xx;
+		};
+
+		return coefficient*exp(-exponent*sum);
+
     }
 
     // By default, adaptive projection into the spectral element basis
@@ -77,6 +61,10 @@ public:
         return specialpt;
     }
 	
+	const int get_counter() const{
+		return counter->get();
+	}
+	
 private:
 	AtomicCounter* counter;
 };
@@ -84,7 +72,6 @@ private:
 real_functor_3d new_gaussian(const coord_3d& origin) {
 
 	double sigma = 1.0;
-	
 
     const double exponent = 1/pow(sigma,2);
 	const double coefficient = 1.0;
@@ -97,7 +84,7 @@ void set_initial_parameters(const int& nx){
 	BoundaryConditions<3> bc(BC_PERIODIC);
 	
 	FunctionDefaults<3>::set_cubic_cell((double) 1, (double) nx);
-	FunctionDefaults<3>::set_bc(bc); 
+	FunctionDefaults<3>::set_bc(bc);
 	FunctionDefaults<3>::set_apply_randomize(true);
 	FunctionDefaults<3>::set_autorefine(true);
 	FunctionDefaults<3>::set_refine(true);
@@ -162,66 +149,72 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	DensityProjector numerical_gaussian(nx, ny, nz, &density[0]);
 	Gaussian analytical_gaussian(origin, 1.0, 1.0);
 	
-	point[0] = origin[0];
-	point[1] = origin[1];
-	for(int i(0); i < npoints; ++i ){
-		point[2] = h * i + 1;
-		value_at_point = numerical_gaussian(point);
-		file_line << value_at_point << "\n";
-
-		value_at_point = analytical_gaussian(point);
-		file_line_exact << value_at_point << "\n";
-	}
+	// point[0] = origin[0];
+	// point[1] = origin[1];
+	// for(int i(0); i < npoints; ++i ){
+	// 	point[2] = h * i + 1;
+	// 	value_at_point = numerical_gaussian(point);
+	// 	file_line << value_at_point << "\n";
+	//
+	// 	value_at_point = analytical_gaussian(point);
+	// 	file_line_exact << value_at_point << "\n";
+	// }
 	
 	auto start_meas_time = std::chrono::high_resolution_clock::now();
 	
-	point[0] = origin[0];
-	point[1] = origin[1];
-	for(int i(0); i < npoints; ++i ){
-		point[2] = h * i + 1;
-		value_at_point = numerical_gaussian(point);
-	}
-	
+	// point[0] = origin[0];
+	// point[1] = origin[1];
+	// for(int i(0); i < npoints; ++i ){
+	// 	point[2] = h * i + 1;
+	// 	value_at_point = numerical_gaussian(point);
+	// }
+
 	auto numerical_time = std::chrono::high_resolution_clock::now();
 	
-	point[0] = origin[0];
-	point[1] = origin[1];
-	for(int i(0); i < npoints; ++i ){
-		point[2] = h * i + 1;
-		value_at_point = analytical_gaussian(point);
-	}
+	// point[0] = origin[0];
+	// point[1] = origin[1];
+	// for(int i(0); i < npoints; ++i ){
+	// 	point[2] = h * i + 1;
+	// 	value_at_point = analytical_gaussian(point);
+	// }
 	
 	auto analytical_time = std::chrono::high_resolution_clock::now();
 	
-	if (world.rank() == 0) printf("%i calls to  numerical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
-	if (world.rank() == 0) printf("%i calls to analytical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(analytical_time - numerical_time).count());
+	// if (world.rank() == 0) printf("%i calls to  numerical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
+	// if (world.rank() == 0) printf("%i calls to analytical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(analytical_time - numerical_time).count());
 	
+	numerical_gaussian.reset_counter();
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
-	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
+	// density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
+	density_functor = real_functor_3d( &numerical_gaussian );
 	// density_functor = real_functor_3d(new_gaussian(origin));
+	// density_functor = real_functor_3d( &analytical_gaussian );
 	auto step_coefficients  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
-	
 	
 	projected_density = real_factory_3d(world).functor(density_functor);
 	auto step_projection  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
 
-	point[2] = origin[2] - 5*h;
-	value_at_point = analytical_gaussian(point);
-	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
-	value_at_point = projected_density(point);
-	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
-	value_at_point = numerical_gaussian(point);
-	if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
+	printf("Number of calls to numerical_gaussian: %i\n", numerical_gaussian.get_counter());
+	// printf("Number of calls to analytical_gaussian: %i\n", analytical_gaussian.get_counter());
 	
+
+	// point[2] = origin[2] - 5*h;
+	// value_at_point = analytical_gaussian(point);
+	// if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
+	// value_at_point = projected_density(point);
+	// if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
+	// value_at_point = numerical_gaussian(point);
+	// if (world.rank() == 0) printf("\tValue at origin (%f, %f, %f) = %f\n", origin[0], origin[1], point[2], value_at_point);
+	//
 	auto printing_step  = std::chrono::high_resolution_clock::now();
 	
 	print_density(world, projected_density, 128, nx);
 	
 	auto printing_end = std::chrono::high_resolution_clock::now();
-	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(printing_end - printing_step).count());
+	if (world.rank() == 0) printf("\tPrinting: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(printing_end - printing_step).count());
 	
 	
 	file_line.close();
@@ -284,7 +277,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// if (world.rank() == 0) printf("Set...\n\n");
 	
 	// if (world.rank() == 0) printf("Setup projection precision\n");
-	set_projection_precision(9, 1e-7);
+	set_projection_precision(8, 1e-6);
 	// if (world.rank() == 0) printf("Set...\n\n");
 	
 	// if (world.rank() == 0) printf("Build projected density\n");
@@ -293,12 +286,12 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	
 	
 	// if (world.rank() == 0) printf("\tPrinting density\n");
-	print_density(world, rho_interp, 128, nx);
+	// print_density(world, rho_interp, 128, nx);
 	// if (world.rank() == 0) printf("\tPrinted...\n\n");
 
 	// if (world.rank() == 0) printf("Computing potential\n");
 	
-	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
+	// compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
 	
 	// //
 	// // potential = &phi;
@@ -312,7 +305,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// if (world.rank() == 0) printf("Eval potential %f\n", temp);
 	
 	// if (world.rank() == 0) printf("Printing potential\n");
-	print_potential(world, phi, 128, nx);
+	// print_potential(world, phi, 128, nx);
 	// if (world.rank() == 0) printf("Printed...\n\n");	
 	
 	return phi;
@@ -472,6 +465,8 @@ int main(int argc, char** argv){
 	if (world.rank() == 0) printf("\nOverall time: %f s\n\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(overall_time  - start_time).count());
 
 	finalize();
+	
+	printf("#YOLO");
 	
 	return 0;
 }
