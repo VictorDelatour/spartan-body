@@ -48,22 +48,20 @@ const double DensityProjector::test_performance(const madness::coord_3d& x, cons
 	double  interx, intery;			// Temporary variable to store the interpolated values along x and y axis
 	int 	disp;					// Position
 
-	std::vector<double> xweights(4);
-	std::vector<double> yweights(4);
-	std::vector<double> zweights(4);
-
-	std::vector<int> xpositions(4);
-	std::vector<int> ypositions(4);
-	std::vector<int> zpositions(4);
+	double xweights[4], yweights[4], zweights[4];
+	int xpositions[4], ypositions[4], zpositions[4];
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
 	for(int iter(0); iter < npoints; ++iter){
 		
-		get_weights_and_position(Axis::X, x, xweights, xpositions);
-		get_weights_and_position(Axis::Y, x, yweights, ypositions);
-		get_weights_and_position(Axis::Z, x, zweights, zpositions);
+		// get_weights_and_position(Axis::X, x, xweights, xpositions);
+		// get_weights_and_position(Axis::Y, x, yweights, ypositions);
+		// get_weights_and_position(Axis::Z, x, zweights, zpositions);
 		
+		get_weights_and_position(Axis::X, x, &xweights[0], &xpositions[0]);
+		get_weights_and_position(Axis::Y, x, &yweights[0], &ypositions[0]);
+		get_weights_and_position(Axis::Z, x, &zweights[0], &zpositions[0]);
 	}
 	
 	auto weight_time = std::chrono::high_resolution_clock::now();
@@ -117,18 +115,24 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 	double  interx, intery;			// Temporary variable to store the interpolated values along x and y axis
 	int 	disp;					// Position
 
-	std::vector<double> xweights(4);
-	std::vector<double> yweights(4);
-	std::vector<double> zweights(4);
+	// std::vector<double> xweights(4);
+	// std::vector<double> yweights(4);
+	// std::vector<double> zweights(4);
+	//
+	// std::vector<int> xpositions(4);
+	// std::vector<int> ypositions(4);
+	// std::vector<int> zpositions(4);
+	
+	double xweights[4], yweights[4], zweights[4];
+	int xpositions[4], ypositions[4], zpositions[4];
 
-	std::vector<int> xpositions(4);
-	std::vector<int> ypositions(4);
-	std::vector<int> zpositions(4);
+	get_weights_and_position(Axis::X, x, &xweights[0], &xpositions[0]);
+	get_weights_and_position(Axis::Y, x, &yweights[0], &ypositions[0]);
+	get_weights_and_position(Axis::Z, x, &zweights[0], &zpositions[0]);
 
-
-	get_weights_and_position(Axis::X, x, xweights, xpositions);
-	get_weights_and_position(Axis::Y, x, yweights, ypositions);
-	get_weights_and_position(Axis::Z, x, zweights, zpositions);
+	// get_weights_and_position(Axis::X, x, xweights, xpositions);
+	// get_weights_and_position(Axis::Y, x, yweights, ypositions);
+	// get_weights_and_position(Axis::Z, x, zweights, zpositions);
 
 	//printf("Weights %f\t %f\t %f\t %f\n", xweights[0], xweights[1], xweights[2], xweights[3]);
 
@@ -144,7 +148,7 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 			interx = 0.0; // Interpolated value along x-axis
 
 			for(int i(0); i <= 3; ++i){
-				disp = xpositions[i] + (ypositions[j] + zpositions[k]*ny)*nx; // Position
+				disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
 
 				interx += xweights[i] * data[disp];
 				// interx += xweights[i];
@@ -270,7 +274,7 @@ int DensityProjector::gaussian_filtering(Axis axis){
 	
 }
 
-int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<double>& weights, std::vector<int>& position) const{
+int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3d& x, double* weights, int* position) const{
 	
 	int pos, index, numel, temp_position;
 	double alpha;
@@ -300,13 +304,16 @@ int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3
 	
 	for(int k(0); k <= 3; ++k){
 		
-		temp_position = index - 1 + k;
+		temp_position = index-1+k;
+		
+		position[k] = temp_position;
 
 		if(temp_position < 0){
-			position[k] = temp_position + numel-1;
+			position[k] += numel-1;
 		}else if(temp_position >= numel){
-			position[k] = temp_position - numel-1;
+			position[k] -= numel-1;
 		}
+		
 	}
 	
 	return 0;
@@ -340,7 +347,7 @@ real_t DensityProjector::get_first_causal(const real_t *start, const int numel, 
 	
 	const double z1(sqrt(3)-2);
 	const int k0( ceil( log(tolerance)/log(fabs(z1)) ) );
-	double sum(start[0]); // s(0)*z_1^0 = s(0)
+	double sum(start[0]);
 	double zn(z1);
 	
 	const int num_sum = ( k0 < numel ? k0 : numel);

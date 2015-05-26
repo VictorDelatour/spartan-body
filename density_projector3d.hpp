@@ -61,14 +61,11 @@ private:
 	// std::atomic<int> counter;
 	AtomicCounter* counter;
 	
-
-	
-
 	int inplace_filtering(Axis axis);
 	
 	int gaussian_filtering(Axis axis);
 	
-	int get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<real_t>& weights, std::vector<int>& position) const;
+	int get_weights_and_position(Axis axis, const madness::coord_3d& x, real_t* weights, int* position) const;
 	
 	///
 	/// @brief 	Transforms \a start into cubic B-spline interpolation coefficients
