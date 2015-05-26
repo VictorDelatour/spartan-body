@@ -42,7 +42,7 @@ void DensityProjector::reset_counter(){
 	counter->reset();
 }
 
-void DensityProjector::test_performance(const madness::coord_3d& x, const int& npoints){
+const double DensityProjector::test_performance(const madness::coord_3d& x, const int& npoints) const{
 	
 	double 	returnvalue;
 	double  interx, intery;			// Temporary variable to store the interpolated values along x and y axis
@@ -55,18 +55,19 @@ void DensityProjector::test_performance(const madness::coord_3d& x, const int& n
 	std::vector<int> xpositions(4);
 	std::vector<int> ypositions(4);
 	std::vector<int> zpositions(4);
-
-
-	get_weights_and_position(Axis::X, x, xweights, xpositions);
-	get_weights_and_position(Axis::Y, x, yweights, ypositions);
-	get_weights_and_position(Axis::Z, x, zweights, zpositions);
 	
-	auto start_meas_time = std::chrono::high_resolution_clock::now();
+	auto start_time = std::chrono::high_resolution_clock::now();
 	
-	printf("xweights = (%f, %f, %f, %f)\n", xweights[0], xweights[1], xweights[2], xweights[3]);
-	printf("yweights = (%f, %f, %f, %f)\n", yweights[0], yweights[1], yweights[2], yweights[3]);
-	printf("zweights = (%f, %f, %f, %f)\n", zweights[0], zweights[1], zweights[2], zweights[3]);
-
+	for(int iter(0); iter < npoints; ++iter){
+		
+		get_weights_and_position(Axis::X, x, xweights, xpositions);
+		get_weights_and_position(Axis::Y, x, yweights, ypositions);
+		get_weights_and_position(Axis::Z, x, zweights, zpositions);
+		
+	}
+	
+	auto weight_time = std::chrono::high_resolution_clock::now();
+	
 	for(int iter(0); iter < npoints; ++iter){
 		
 		returnvalue = 0.0;
@@ -77,25 +78,35 @@ void DensityProjector::test_performance(const madness::coord_3d& x, const int& n
 
 			for(int j(0); j <= 3; ++j){
 
-				interx = 0.0;
+				// interx = 0.0;
+				//
+				// for(int i(0); i <= 3; ++i){
+				// 	disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
+				// 	interx += xweights[i] * data[disp];
+				// }
+				
+				disp = xpositions[0] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
 
-				for(int i(0); i <= 3; ++i){
-					disp = xpositions[i] + (ypositions[j] + zpositions[k]*ny)*nx; // Position
-					interx += xweights[i] * data[disp];
-				}
+				interx = xweights[0] * data[disp] + xweights[1] * data[disp + 1] + xweights[2] * data[disp + 2] + xweights[3] * data[disp + 3];
+
 				intery += yweights[j] * interx;
 			}
 			returnvalue += zweights[k] * intery;
 		}
-		
 	}
 	
-	printf("Return value = %e\n", returnvalue);
+	auto end_time = std::chrono::high_resolution_clock::now();
 	
-	auto numerical_time = std::chrono::high_resolution_clock::now();
-
-	printf("Performance test for %i points: %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
 	
+	printf("Return value = %f \n", returnvalue);
+	double weights_time = 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(weight_time - start_time).count();
+	double interp_time = 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(end_time - weight_time).count();
+	double total_time = 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count();
+	printf("Weights, %i points: %f s\n", npoints, weights_time);
+	printf("Linear interpolation, %i points: %f s\n", npoints, interp_time);
+	printf("Total time, %i points: %f s\n", npoints, total_time);
+	
+	return total_time;
 }
 
 double DensityProjector::operator()(const madness::coord_3d& x) const{
@@ -138,14 +149,10 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 				interx += xweights[i] * data[disp];
 				// interx += xweights[i];
 			}
-
-
-			// if(std::abs(interx - 1.0) > 1e-14){
-			// 	printf("\n interx is not 1, value is %f and error is %e\n", interx, std::abs(interx - 1.0));
-			// 	// exit(0);
-			// }
 			
-			
+			// // Loop unrolling
+			// disp = xpositions[0] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
+			// interx = xweights[0] * data[disp] + xweights[1] * data[disp + 1] + xweights[2] * data[disp + 2] + xweights[3] * data[disp + 3];
 			
 			intery += yweights[j] * interx;
 			// intery should be one
@@ -153,12 +160,6 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 		returnvalue += zweights[k] * intery;
 	}
 
-	//printf("rho(%f, %f, %f) = %f\n",x[0], x[1], x[2], returnvalue);
-	
-	// if(std::abs(returnvalue - 1.0) > 1e-14){
-	// 	printf("\nReturnvalue is not 1, value is %f and error is %e", returnvalue, std::abs(returnvalue - 1.0));
-	// }
-	//
 	return returnvalue;
 }
 
@@ -271,33 +272,40 @@ int DensityProjector::gaussian_filtering(Axis axis){
 
 int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<double>& weights, std::vector<int>& position) const{
 	
-	int pos, index, numel;
+	int pos, index, numel, temp_position;
 	double alpha;
 	
 	numel = ( (axis == Axis::X) ? nx : ( (axis == Axis::Y) ? ny : nz) );
 	pos = ( (axis == Axis::X) ? 0 : ( (axis == Axis::Y) ? 1 : 2) );
 	
-	index = (int) floor(x[pos] - 1);
+	// Is this slow?
+	// index = (int) floor(x[pos] - 1);
+	index = static_cast<int> (x[pos] - 1.); // Faster, plus you should be safe, as x belongs to [1, 128]
 	
-	alpha = x[pos] - (index + 1); 	
+	alpha = x[pos] - (index + 1.); 	
 	
-	weights[0] = 1./6. * (1. - alpha) * (1. - alpha) * (1. - alpha);
-	weights[1] = 2./3. - .5 * alpha * alpha * (2. - alpha);
-	weights[2] = 2./3. - .5 * (1. - alpha) * (1. - alpha) * (1. + alpha);
-	weights[3] = 1./6. * alpha * alpha * alpha;
-	
-	if (std::abs(weights[0] + weights[1] + weights[2] + weights[3] - 1.0) > 1e-13 ){
-		printf("\nSum of weights is not equal to 1\n\n");
-	}
+	double ialp(1. - alpha);
+	double ialp2(ialp * ialp);
+	double alp2(alpha * alpha);
+
+	weights[0] = 1./6. * ialp * ialp2;
+	weights[1] = 2./3. - .5 * alp2 * (2. - alpha);
+	weights[2] = 2./3. - .5 * ialp2 * (1. + alpha);
+	weights[3] = 1./6. * alp2 * alpha;
+
+	// weights[0] = 1./6. * (1. - alpha) * (1. - alpha) * (1. - alpha);
+	// weights[1] = 2./3. - .5 * alpha * alpha * (2. - alpha);
+	// weights[2] = 2./3. - .5 * (1. - alpha) * (1. - alpha) * (1. + alpha);
+	// weights[3] = 1./6. * alpha * alpha * alpha;
 	
 	for(int k(0); k <= 3; ++k){
 		
-		position[k] = index - 1 + k;
-		
-		if(position[k] < 0){
-			position[k] += numel-1; 
-		}else if(position[k] >= numel){
-			position[k] -= numel-1;
+		temp_position = index - 1 + k;
+
+		if(temp_position < 0){
+			position[k] = temp_position + numel-1;
+		}else if(temp_position >= numel){
+			position[k] = temp_position - numel-1;
 		}
 	}
 	

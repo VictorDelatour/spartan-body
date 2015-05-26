@@ -141,7 +141,7 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	file_line_exact.open("data/line_analytical.dat");
 	
 	coord_3d point;
-	const int npoints(1e6);
+	const int npoints(1e8);
 	double h = (double(nz)-1.0)/double(npoints);
 	double value_at_point;
 	
@@ -172,16 +172,18 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	
 
 	
-	auto start_meas_time = std::chrono::high_resolution_clock::now();
+	// auto start_meas_time = std::chrono::high_resolution_clock::now();
 	
-	numerical_gaussian.test_performance(point, npoints);
+	double perf_time = numerical_gaussian.test_performance(point, npoints);
+	
+	if (world.rank() == 0) printf("Performance test: %i calls to () too %f s\n", npoints, perf_time);
 	
 	// for(int i(0); i < npoints; ++i ){
 	// 	point[2] = h * i + 1;
 	// 	value_at_point = numerical_gaussian(point);
 	// }
 
-	auto numerical_time = std::chrono::high_resolution_clock::now();
+	// auto numerical_time = std::chrono::high_resolution_clock::now();
 	
 	// point[0] = origin[0];
 	// point[1] = origin[1];
@@ -190,9 +192,9 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	// 	value_at_point = analytical_gaussian(point);
 	// }
 	
-	auto analytical_time = std::chrono::high_resolution_clock::now();
+	// auto analytical_time = std::chrono::high_resolution_clock::now();
 	
-	if (world.rank() == 0) printf("%i calls to  numerical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
+	// if (world.rank() == 0) printf("%i calls to  numerical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(numerical_time - start_meas_time).count());
 	// if (world.rank() == 0) printf("%i calls to analytical() took %f s\n", npoints, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(analytical_time - numerical_time).count());
 	
 
