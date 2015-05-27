@@ -55,10 +55,6 @@ const double DensityProjector::test_performance(const madness::coord_3d& x, cons
 	
 	for(int iter(0); iter < npoints; ++iter){
 		
-		// get_weights_and_position(Axis::X, x, xweights, xpositions);
-		// get_weights_and_position(Axis::Y, x, yweights, ypositions);
-		// get_weights_and_position(Axis::Z, x, zweights, zpositions);
-		
 		get_weights_and_position(Axis::X, x, &xweights[0], &xpositions[0]);
 		get_weights_and_position(Axis::Y, x, &yweights[0], &ypositions[0]);
 		get_weights_and_position(Axis::Z, x, &zweights[0], &zpositions[0]);
@@ -145,21 +141,20 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 
 		for(int j(0); j <= 3; ++j){
 
-			interx = 0.0; // Interpolated value along x-axis
-
-			for(int i(0); i <= 3; ++i){
-				disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
-
-				interx += xweights[i] * data[disp];
-				// interx += xweights[i];
-			}
+			// interx = 0.0; // Interpolated value along x-axis
+			//
+			// for(int i(0); i <= 3; ++i){
+			// 	disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
+			//
+			// 	interx += xweights[i] * data[disp];
+			// }
 			
-			// // Loop unrolling
-			// disp = xpositions[0] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
-			// interx = xweights[0] * data[disp] + xweights[1] * data[disp + 1] + xweights[2] * data[disp + 2] + xweights[3] * data[disp + 3];
-			
+			// Loop unrolling
+			disp = (ypositions[j] + zpositions[k] * ny) * nx; // Position
+			interx = xweights[0] * data[disp + xpositions[0]] + xweights[1] * data[disp + xpositions[1]] + xweights[2] * data[disp + xpositions[2]] + xweights[3] * data[disp + xpositions[3]];
+			// This is actually wrong due to boundary conditions!
+
 			intery += yweights[j] * interx;
-			// intery should be one
 		}
 		returnvalue += zweights[k] * intery;
 	}
