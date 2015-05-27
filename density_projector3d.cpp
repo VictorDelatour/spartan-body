@@ -5,19 +5,6 @@ nx(nx), ny(ny), nz(nz), data(data){
 	
 	counter = new AtomicCounter();
 	
-	// std::string filename("data/cube128_1gaussian_1_1.bin");
-	//
-	// std::ifstream file;
-	//
-	// file.open(filename, std::ios::in | std::ios::binary);
-	//
-	//   	if (file.is_open()){
-	//     	file.read(reinterpret_cast<char*>(&data[0]), nx * ny * nz * (sizeof data[0]) );
-	//    	} else{
-	//    		std::cout << "File " << filename <<" not opened" << std::endl;
-	//    	}
-	//
-
 	// Filtering along rows, the space between two consecutive elements is simply 1 (adjacent)
 	inplace_filtering(Axis::X);
 	// Filtering along columns, the space between two consecutive elements is nx
@@ -72,17 +59,9 @@ const double DensityProjector::test_performance(const madness::coord_3d& x, cons
 
 			for(int j(0); j <= 3; ++j){
 
-				// interx = 0.0;
-				//
-				// for(int i(0); i <= 3; ++i){
-				// 	disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
-				// 	interx += xweights[i] * data[disp];
-				// }
+				disp = (ypositions[j] + zpositions[k] * ny) * nx;
+				interx = xweights[0] * data[disp + xpositions[0]] + xweights[1] * data[disp + xpositions[1]] + xweights[2] * data[disp + xpositions[2]] + xweights[3] * data[disp + xpositions[3]];
 				
-				disp = xpositions[0] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
-
-				interx = xweights[0] * data[disp] + xweights[1] * data[disp + 1] + xweights[2] * data[disp + 2] + xweights[3] * data[disp + 3];
-
 				intery += yweights[j] * interx;
 			}
 			returnvalue += zweights[k] * intery;
@@ -105,19 +84,11 @@ const double DensityProjector::test_performance(const madness::coord_3d& x, cons
 
 double DensityProjector::operator()(const madness::coord_3d& x) const{
 	
-	counter->increment();
+	// counter->increment();
 
 	double 	returnvalue;
 	double  interx, intery;			// Temporary variable to store the interpolated values along x and y axis
 	int 	disp;					// Position
-
-	// std::vector<double> xweights(4);
-	// std::vector<double> yweights(4);
-	// std::vector<double> zweights(4);
-	//
-	// std::vector<int> xpositions(4);
-	// std::vector<int> ypositions(4);
-	// std::vector<int> zpositions(4);
 	
 	double xweights[4], yweights[4], zweights[4];
 	int xpositions[4], ypositions[4], zpositions[4];
@@ -126,11 +97,6 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 	get_weights_and_position(Axis::Y, x, &yweights[0], &ypositions[0]);
 	get_weights_and_position(Axis::Z, x, &zweights[0], &zpositions[0]);
 
-	// get_weights_and_position(Axis::X, x, xweights, xpositions);
-	// get_weights_and_position(Axis::Y, x, yweights, ypositions);
-	// get_weights_and_position(Axis::Z, x, zweights, zpositions);
-
-	//printf("Weights %f\t %f\t %f\t %f\n", xweights[0], xweights[1], xweights[2], xweights[3]);
 
 	returnvalue = 0.0;
 
@@ -141,7 +107,7 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 
 		for(int j(0); j <= 3; ++j){
 
-			// interx = 0.0; // Interpolated value along x-axis
+			interx = 0.0; // Interpolated value along x-axis
 			//
 			// for(int i(0); i <= 3; ++i){
 			// 	disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
@@ -150,9 +116,8 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 			// }
 			
 			// Loop unrolling
-			disp = (ypositions[j] + zpositions[k] * ny) * nx; // Position
+			disp = (ypositions[j] + zpositions[k] * ny) * nx;
 			interx = xweights[0] * data[disp + xpositions[0]] + xweights[1] * data[disp + xpositions[1]] + xweights[2] * data[disp + xpositions[2]] + xweights[3] * data[disp + xpositions[3]];
-			// This is actually wrong due to boundary conditions!
 
 			intery += yweights[j] * interx;
 		}
@@ -351,16 +316,7 @@ real_t DensityProjector::get_first_causal(const real_t *start, const int numel, 
 		sum += zn * start[i * shift];
 		zn *= z1;
 	}
-	
-	// if(k0 < numel){
-	// 	for(int i(1); i < k0; ++i){
-	// 		sum += zn * start[i * shift];
-	// 		zn *= z1;
-	// 	}
-	// }
-	// Add computation for "complete" loop
-	
-	
+		
 	return sum;
 }
 

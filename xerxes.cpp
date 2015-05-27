@@ -126,58 +126,6 @@ void print_density(World& world, const real_function_3d& projected_density, cons
 	
 }
 
-void build_projected_density(World& world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d& projected_density){
-	
-	double access_value;
-	real_functor_3d density_functor;
-
-	// DensityProjector numerical_gaussian(nx, ny, nz, &density[0]);
-	// numerical_gaussian.reset_counter();
-	
-	auto start_time = std::chrono::high_resolution_clock::now();
-	
-	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
-	// density_functor = real_functor_3d( &numerical_gaussian );
-	auto step_coefficients  = std::chrono::high_resolution_clock::now();
-	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
-	
-	projected_density = real_factory_3d(world).functor(density_functor);
-	auto step_projection  = std::chrono::high_resolution_clock::now();
-	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
-
-	// printf("Number of calls to numerical_gaussian: %i\n", numerical_gaussian.get_counter());
-
-	auto printing_step  = std::chrono::high_resolution_clock::now();
-	
-	print_density(world, projected_density, 128, nx);
-	
-	auto printing_end = std::chrono::high_resolution_clock::now();
-	if (world.rank() == 0) printf("\tPrinting: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(printing_end - printing_step).count());
-
-}
-
-void compute_potential(World& world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
-	
-	double integral, volume, mean;
-
-	// if (world.rank() == 0) printf("\tProjecting potential\n");
-	
-	real_convolution_3d coulomb_operator = CoulombOperator(world, precision, threshold);
-	
-	potential = coulomb_operator(projected_density);
-
-	
-	// if (world.rank() == 0) printf("\tProjected potential\n");
-
-	integral = (potential).trace();
-	volume = FunctionDefaults<3>::get_cell_volume();
-	mean = integral/volume;
-
-	potential = potential - mean;
-	// if (world.rank() == 0) printf("\tNormalized\n");
-	
-}
-
 void print_potential(World& world, const real_function_3d& potential, const int& numpts, const int& nx){
 	
 	const char filename_potential[] = "data/spartan_potential.vts";
@@ -195,6 +143,73 @@ void print_potential(World& world, const real_function_3d& potential, const int&
 	plotvtk_begin(world, filename_potential, plotlo, plothi, npoints);
 	plotvtk_data(potential, "potential", world, filename_potential, plotlo, plothi, npoints);
 	plotvtk_end<3>(world, filename_potential);
+	
+}
+
+void build_projected_density(World& world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d& projected_density){
+	
+	if (world.rank() == 0) printf("\nDensity step\n");
+	
+	double access_value;
+	real_functor_3d density_functor;
+	
+	// coord_3d center;
+	// center[0] = .5 * (nx - 1.0); center[1] = .5 * (ny - 1.0); center[2] = .5 * (nz - 1.0);
+
+	// DensityProjector numerical_gaussian(nx, ny, nz, &density[0]);
+	// numerical_gaussian.reset_counter();
+	
+	auto start_time = std::chrono::high_resolution_clock::now();
+	
+	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
+	// density_functor = real_functor_3d( &numerical_gaussian );
+	// density_functor = real_functor_3d( new Gaussian(center, 1.0, 1.0) );
+	auto step_coefficients  = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
+	
+	projected_density = real_factory_3d(world).functor(density_functor);
+	auto step_projection  = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tProjection:   %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
+
+	// printf("Number of calls to numerical_gaussian: %i\n", numerical_gaussian.get_counter());
+
+	auto printing_step  = std::chrono::high_resolution_clock::now();
+	
+	print_density(world, projected_density, 128, nx);
+	
+	auto printing_end = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tPrinting:     %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(printing_end - printing_step).count());
+	
+	if (world.rank() == 0) printf("Density step:         %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(printing_step - start_time).count());
+
+}
+
+void compute_potential(World& world, const real_function_3d& projected_density, real_function_3d& potential, const double& precision, const double& threshold){
+	
+	
+	if (world.rank() == 0) printf("\nPotential step\n");
+	auto start_time = std::chrono::high_resolution_clock::now();
+	
+	double integral, volume, mean;
+	
+	real_convolution_3d coulomb_operator = CoulombOperator(world, precision, threshold);
+	
+	potential = coulomb_operator(projected_density);
+	
+	auto coulomb_time = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tCoulomb step:  %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(coulomb_time - start_time).count());
+
+	integral = potential.trace();
+	volume = FunctionDefaults<3>::get_cell_volume();
+	mean = integral/volume;
+	potential = potential - mean;
+	
+	auto update_time = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("\tNormalization: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(update_time - coulomb_time).count());
+	
+	auto end_time = std::chrono::high_resolution_clock::now();
+	if (world.rank() == 0) printf("Potential step:        %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
+
 	
 }
 
@@ -225,22 +240,12 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 
 	// if (world.rank() == 0) printf("Computing potential\n");
 	
-	// compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
-	
-	// //
-	// // potential = &phi;
-	//
-	// compute_potential(world, rho_interp, potential, 1e-6, 1e-8);
-	// if (world.rank() == 0) printf("Computed...\n\n");
-	
-	//
-	// double temp;
-	// temp = phi(5.0, 5.0, 5.0);
-	// if (world.rank() == 0) printf("Eval potential %f\n", temp);
+	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
+		
 	
 	// if (world.rank() == 0) printf("Printing potential\n");
-	// print_potential(world, phi, 128, nx);
-	// if (world.rank() == 0) printf("Printed...\n\n");	
+	print_potential(world, phi, 128, nx);
+	// if (world.rank() == 0) printf("Printed...\n\n");
 	
 	return phi;
 }
@@ -257,6 +262,17 @@ void compute_gradient(World& world, const real_function_3d& potential, vector_re
 
 void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, const int& nparticles, const real_function_3d& potential, const real_t& timestep){
 	
+	// THIS 
+	// IS 
+	// WHERE 
+	// YOU
+	// WILL 
+	// HAVE 
+	// TO 
+	// SPEND 
+	// A 
+	// WHILE ;)
+	
 	const int nx(128), ny(128), nz(128);
 	
 	vector_real_function_3d gradient(3);
@@ -266,15 +282,10 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 		
 	for(int particle = world.rank(); particle < upper_limit; particle += world.size()){
 
-		// Is it really useful to create a coordT like this, for nothing? I don't think so...
 		coordT position, velocity;
 		position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
 		velocity[0] = vx[particle]; velocity[1] = vy[particle]; velocity[2] = vz[particle];
 
-		// update_velocity(position, velocity, timestep, gradient);
-		//
-		// update_position(position, velocity, timestep);
-		
 		for(int direction(0); direction < 3; ++direction){
 			
 			// Issue is here, probably doesn't like the accessing of gradient
@@ -372,17 +383,17 @@ int main(int argc, char** argv){
 	// 	//
 	//
 		// world.gop.fence();
-		// auto step_potential_time  = std::chrono::high_resolution_clock::now();
+		auto potential_time  = std::chrono::high_resolution_clock::now();
 		// if (world.rank() == 0) printf("\tPotential %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_potential_time  - step_density_time).count());
 		// if (world.rank() == 0) printf("\nFinished\n\n");
 	//
 	// 	//
-	// 	update_particles(world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
+		update_particles(world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
 	// 	//
 	//
 	// 	world.gop.fence();
-	// 	auto step_update_time = std::chrono::high_resolution_clock::now();
-	// 	if (world.rank() == 0) printf("\tUpdate %i: %f s\n", step,  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_update_time  - step_potential_time).count());
+		auto update_time = std::chrono::high_resolution_clock::now();
+		if (world.rank() == 0) printf("\tUpdate %i: %f s\n", step,  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(update_time  - potential_time).count());
 	//
 	// 	//
 	// 	memset(&density[0], 0, sizeof(real_t)*nx*ny*nz);
