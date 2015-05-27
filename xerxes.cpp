@@ -41,9 +41,9 @@ public:
 		counter->increment();
 		
 		double sum = 0.0;
-		for (int i=0; i<3; i++) {
+		for (int i(0); i<3; i++) {
 			double xx = center[i]-x[i];
-			xx *= 10./128.; // Stupid ratio...
+			xx *= 10./128.;
 			sum += xx*xx;
 		};
 
@@ -174,9 +174,9 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	
 	// auto start_meas_time = std::chrono::high_resolution_clock::now();
 	
-	double perf_time = numerical_gaussian.test_performance(point, npoints);
+	// double perf_time = numerical_gaussian.test_performance(point, npoints);
 	
-	if (world.rank() == 0) printf("Performance test: %i calls to () too %f s\n", npoints, perf_time);
+	// if (world.rank() == 0) printf("Performance test: %i calls to () too %f s\n", npoints, perf_time);
 	
 	// for(int i(0); i < npoints; ++i ){
 	// 	point[2] = h * i + 1;
@@ -209,7 +209,7 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	auto step_coefficients  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
 	
-	projected_density = real_factory_3d(world).functor(density_functor).thresh(1e-6);
+	projected_density = real_factory_3d(world).functor(density_functor);
 	auto step_projection  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tProjection: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
 
@@ -293,7 +293,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// if (world.rank() == 0) printf("Set...\n\n");
 	
 	// if (world.rank() == 0) printf("Setup projection precision\n");
-	set_projection_precision(8, 1e-6);
+	set_projection_precision(9, 1e-7);
 	// if (world.rank() == 0) printf("Set...\n\n");
 	
 	// if (world.rank() == 0) printf("Build projected density\n");
