@@ -459,6 +459,7 @@ int main(int argc, char** argv){
 	//
 	// 	//
 	// 	// real_function_3d potential = solve_potential(world, nx, ny, nz, &density[0]);
+		
 		real_function_3d potential = solve_potential(world, &x[0], &y[0], &z[0], nx, ny, nz, nparticles, &density[0]);
 	// 	//
 	//
