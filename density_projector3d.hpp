@@ -1,7 +1,34 @@
 #include <madness/mra/mra.h>
+#include <atomic>
+#include <chrono>
+#include <cstdio>
+#include <cstring>
+#include <fstream>
+#include <iostream>
 #include <vector>
 
+
 typedef double real_t;
+
+struct AtomicCounter {
+    std::atomic<int> value;
+
+    void increment(){
+        ++value;
+    }
+
+    void decrement(){
+        --value;
+    }
+
+    int get(){
+        return value.load();
+    }
+	
+	void reset(){
+		value = 0;
+	}
+};
 
 class DensityProjector: public madness::FunctionFunctorInterface<double,3>{
 
@@ -11,6 +38,13 @@ public:
 	~DensityProjector();
 	
 	double operator()(const madness::coord_3d& x) const;
+	
+	const int get_counter() const;
+	void reset_counter();
+	
+	const double test_performance(const madness::coord_3d& x, const int& npoints) const;
+	
+	
 	
 protected:
 	
@@ -22,12 +56,16 @@ private:
 	const int ny;
 	const int nz;
 	
-	double* data;
+	real_t* data;
 	
-
+	// std::atomic<int> counter;
+	AtomicCounter* counter;
+	
 	int inplace_filtering(Axis axis);
 	
-	int get_weights_and_position(Axis axis, const madness::coord_3d& x, std::vector<real_t>& weights, std::vector<int>& position) const;
+	int gaussian_filtering(Axis axis);
+	
+	int get_weights_and_position(Axis axis, const madness::coord_3d& x, real_t* weights, int* position) const;
 	
 	///
 	/// @brief 	Transforms \a start into cubic B-spline interpolation coefficients

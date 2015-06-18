@@ -5,14 +5,17 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 	INTEGER :: step
 	INTEGER, INTENT(IN) :: nx, ny, nz, nparticles
 	REAL*8, DIMENSION(nparticles) :: x, y, z, mass
-	REAL*8, DIMENSION(nx, ny, nz) :: density ! Maybe be careful with dimensions, fortran is column-major
+	REAL*8, DIMENSION(nx, ny, nz) :: density 
 	
 	REAL*8 :: didx, didy, didz, didxp,  didyp,  didzp
 	REAL*8 :: d1, d2, d3, d4, d5, d6, d7, d8
 	
+	REAL*8 :: threshold
+	
 	INTEGER :: particle
 	INTEGER :: idx, idy, idz, idxp, idyp, idzp
 	INTEGER :: ierror
+	
 	
 	do particle = 1, nparticles
 		
@@ -63,6 +66,7 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 		
 	end do
 	
+		
 	CALL WRITE_DENSITY(nx, ny, nz, density, step)
 	
 END SUBROUTINE PROJECT_DENSITY
