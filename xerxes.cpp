@@ -14,8 +14,8 @@ using namespace madness;
 typedef double real_t;
 typedef Vector<double,3> coordT;
 
-extern "C" void get_dim_(int* nx, int* ny, int* nz, int* nparticles);
-extern "C" void part_init_(const int* nx, const int* ny, const int* nz, const int* nparticles, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, real_t* mass);
+extern "C" void get_dim_(int* nx, int* ny, int* nz, int* nparticles, int* nproc);
+extern "C" void part_init_(const int* nx, const int* ny, const int* nz, const int* nparticles, const int* nproc, real_t* x, real_t* y, real_t* z, real_t* vx, real_t* vy, real_t* vz, real_t* mass);
 extern "C" void project_density_(const int* nx, const int* ny, const int* nz, const int* nparticles, const real_t* x, const real_t* y, const real_t* z, real_t* mass, real_t* density, const int* step);
 
 class Gaussian : public FunctionFunctorInterface<double,3> {
@@ -70,6 +70,18 @@ private:
 	AtomicCounter* counter;
 };
 
+const double p( 1/( 4 * constants::pi ) );//*6.67384e-11));
+
+double gaussian_density(const coord_3d& r){
+	double sum = .0;
+	for (int i(0); i < 3; ++i){
+		double xx = r[i];
+		sum += xx*xx;
+	}
+	
+	return -(4*sum - 6) * p * exp(-sum);
+}
+
 real_functor_3d new_gaussian(const coord_3d& origin) {
 
 	double sigma = 1.0;
@@ -103,15 +115,8 @@ void print_density(World& world, const real_function_3d& projected_density, cons
 	
 	const char filename_density[] = "data/spartan_density.vts";
 	
-	coord_3d origin;
-	origin[0] = .5*(double(nx)-1) + 1;
-	origin[1] = .5*(double(nx)-1) + 1;
-	origin[2] = .5*(double(nx)-1) + 1;
-	
-	
 	Vector<double, 3> plotlo, plothi;
 	Vector<long, 3> npoints;
-	
 	
 	for(int i(0); i < 3; ++i){
 		plotlo[i] = 1;
@@ -122,8 +127,6 @@ void print_density(World& world, const real_function_3d& projected_density, cons
 	plotvtk_begin(world, filename_density, plotlo, plothi, npoints);
 	plotvtk_data(projected_density, "density", world, filename_density, plotlo, plothi, npoints);
 	plotvtk_end<3>(world, filename_density);
-	
-	// if (world.rank() == 0) printf("Printed...\n\n");
 	
 }
 
@@ -147,6 +150,51 @@ void print_potential(World& world, const real_function_3d& potential, const int&
 	
 }
 
+void initialize_mod_density(const int& nx, const int& ny, const int& nz, real_t* density){
+	
+	coordT position;
+	
+	double left(-5.), right(5.);
+	double length(right-left);
+	
+
+	// position[2] = -.5*(nz + 1.);
+	position[2] = left;
+	
+	real_t px(length / static_cast<real_t>(nx));
+	real_t py(length / static_cast<real_t>(ny));
+	real_t pz(length / static_cast<real_t>(nz));
+	
+	int index_y, index_z;
+	
+	for(int idz(0); idz < nz; ++idz){
+
+		index_z = idz * nx * ny;
+
+		// position[1] = -.5*(ny + 1.);
+		position[1] = left;
+		position[2] += px;
+
+		for(int idy(0); idy < ny; ++ idy){
+
+			index_y = index_z + idy * nx;
+
+			// position[0] = -.5*(nx + 1.);
+			position[0] = left;
+			position[1] += py;
+
+			for(int idx(0); idx < nx; ++idx){
+
+				// Position ranges from 1 to 128
+				position[0] += pz;
+
+				density[index_y + idx] = gaussian_density(position);
+				// printf("Density (%f, %f, %f): %f\n", position[0], position[1], position[2], density[index_y + idx]);
+			}
+		}
+	}
+}
+
 void build_projected_density(World& world, const int& nx, const int& ny, const int& nz, real_t* density, real_function_3d& projected_density){
 	
 	if (world.rank() == 0) printf("\nDensity step\n");
@@ -154,25 +202,27 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	double access_value;
 	real_functor_3d density_functor;
 	
-	// coord_3d center;
-	// center[0] = .5 * (nx - 1.0); center[1] = .5 * (ny - 1.0); center[2] = .5 * (nz - 1.0);
+	coord_3d center;
+	center[0] = .5 * (nx + 1.0); center[1] = .5 * (ny + 1.0); center[2] = .5 * (nz + 1.0);
 
 	// DensityProjector numerical_gaussian(nx, ny, nz, &density[0]);
 	// numerical_gaussian.reset_counter();
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
+	// initialize_mod_density(nx, ny, nz, &density[0]);
+	
 	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
-	// density_functor = real_functor_3d( &numerical_gaussian );
-	// density_functor = real_functor_3d( new Gaussian(center, 1.0, 1.0) );
+
+	// Is 10x too small?
+	// density_functor = real_functor_3d( new Gaussian(center, 10.0, 1.0) );
+	
 	auto step_coefficients  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tCoefficients: %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_coefficients - start_time).count());
 	
 	projected_density = real_factory_3d(world).functor(density_functor);
 	auto step_projection  = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tProjection:   %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_projection - step_coefficients).count());
-
-	// printf("Number of calls to numerical_gaussian: %i\n", numerical_gaussian.get_counter());
 
 	auto printing_step  = std::chrono::high_resolution_clock::now();
 	
@@ -200,8 +250,15 @@ void compute_potential(World& world, const real_function_3d& projected_density, 
 	if (world.rank() == 0) printf("\tCoulomb step:  %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(coulomb_time - start_time).count());
 
 	// integral = potential.trace();
+	// integral = potential.norm2();
 	// volume = FunctionDefaults<3>::get_cell_volume();
-	// mean = integral/volume;
+	// mean = integral*integral/volume;
+	//
+	// if (world.rank() == 0) printf("Integral = %f\n", integral);
+	// if (world.rank() == 0) printf("Volume   = %f\n", volume);
+	// if (world.rank() == 0) printf("Mean		= %f\n", mean);
+	//
+	
 	// potential = potential - mean;
 	
 	auto update_time = std::chrono::high_resolution_clock::now();
@@ -209,7 +266,6 @@ void compute_potential(World& world, const real_function_3d& projected_density, 
 	
 	auto end_time = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("Potential step:        %f s\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(end_time - start_time).count());
-
 
 }
 
@@ -237,10 +293,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	// print_density(world, rho_interp, 128, nx);
 	// if (world.rank() == 0) printf("\tPrinted...\n\n");
 	
-	
-	
 	// if (world.rank() == 0) printf("Computing potential\n");
-	
 	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
 		
 	// if (world.rank() == 0) printf("Printing potential\n");
@@ -266,11 +319,10 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
-	
 	const int nx(128), ny(128), nz(128);
 	
 	vector_real_function_3d gradient(3);
-	const int upper_limit = nparticles;
+	static const int upper_limit = nparticles;
 	
 	compute_gradient(world, potential, gradient);
 	
@@ -278,118 +330,109 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 	if (world.rank() == 0) printf("\tGradient:  %f s\n",  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(gradient_time  - start_time).count());
 	
 	float velocity_time(0.), position_time(0.), update_time(0.);
-	//
-	// Test of implementation of eval_vector
-	// std::vector<real_t> x_t(1), y_t(1), z_t(1);
-	// x_t[0] = x[0]; y_t[0] = y[0]; z_t[0] = z[0];
-
-	int num_eval(1e5);
-
-	std::vector<real_t> x_pos(num_eval), y_pos(num_eval), z_pos(num_eval);
-	//
-	for(int i(0); i < num_eval; ++i){
-		x_pos[i] = x[i];
-		y_pos[i] = y[i];
-		z_pos[i] = z[i];
-	}
-	
-	// //
-	// //
-	coordT pos_t;
-	pos_t[0] = x_pos[0]; pos_t[1] = y_pos[0]; pos_t[2] = z_pos[0];
-	// // coordT pos_t2;
-	// // pos_t2[0] = x_pos[1]; pos_t2[1] = y_pos[1]; pos_t2[2] = z_pos[1];
-	//
-	// // Tensor<double> evaluate(num_eval);
-	//
-	//
-	// // evaluate = gradient[0].eval_vector(x_t, y_t, z_t);
-	
-	
-	
-	Tensor<double> cell(3,2);
-	std::vector<long> npoints(3);
-	const int numpts(128);
-	
-	// if(world.rank() == 0) printf("#YOLO\n");
-
-	for(int i(0); i < 3; ++i){
-		cell(i, 0) = 1.0;
-		cell(i, 1) = double(nx);
- 		npoints[i] = numpts;
-	}
-	
-	
-	// if(world.rank() == 0) printf("#YOLO\n");
-	
-	auto fun_time = std::chrono::high_resolution_clock::now();
-
-	Tensor<double> evaluate = gradient[0].eval_vector(x_pos, y_pos, z_pos);
-	
-	// Tensor<double> evaluate = gradient[0].eval_cube(cell, npoints);
-	
-	// evaluate = gradient[0].eval_vector(x_t, y_t, z_t);
-	
-	// if(world.rank() == 0) printf("#YOLO\n");
+			
 	
 	auto eval_time = std::chrono::high_resolution_clock::now();
 	
-	double custom_time = (float)std::chrono::duration_cast<std::chrono::microseconds>(eval_time - fun_time).count();
-	// if (world.rank() == 0) printf("\n Custom evaluation of %i particles: %f s\n", num_eval,  1e-6*custom_time);
-	if (world.rank() == 0) printf("\n Evaluation of grad_x : %f s\n",  1e-6*custom_time);
+	std::vector<real_t> grad_x, grad_y, grad_z;
+	grad_x.resize(upper_limit);
+	grad_y.resize(upper_limit);
+	grad_z.resize(upper_limit);
 	
-	// if (world.rank() == 0) printf("\n Pos2 (%f, %f, %f)\n\n", pos_t2[0], pos_t2[1], pos_t2[2]);
-
-
-
-	double temp = gradient[0].eval(pos_t);
-	// double temp2 = gradient[0].eval(pos_t2);
+	if (world.rank() == 0) printf(" Computing futures\n");
+	// Use futures to speed up stuff?
 	
-	// if (world.rank() == 0) printf("\n Custom-built evaluation of gradient at position (%f, %f, %f): %f", x_pos[0], 	y_pos[0], 	z_pos[0], 	evaluate[0]);
-	// if (world.rank() == 0) printf("\n Standard evaluation of gradient at position (%f, %f, %f): %f\n\n", pos_t[0], 	pos_t[1], 	pos_t[2], 	temp);
-	
-	
-	// if (world.rank() == 0) printf("\n Custom-built evaluation of gradient at position (%f, %f, %f): %f", x_pos[1], 	y_pos[1], 	z_pos[1], 	evaluate[1]);
-	// if (world.rank() == 0) printf("\n Standard evaluation of gradient at position (%f, %f, %f): %f\n\n", pos_t2[0], pos_t2[1], 	pos_t2[2], 	temp2);
+	for(int particle = world.rank(); particle < nparticles; particle += world.size()){
 		
-	// for(int particle = world.rank(); particle < upper_limit; particle += world.size()){
-	//
-	// 	coordT position, velocity;
-	// 	position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
-	// 	velocity[0] = vx[particle]; velocity[1] = vy[particle]; velocity[2] = vz[particle];
-	//
-	// 	auto vel_time = std::chrono::high_resolution_clock::now();
-	// 	int ndir(3);
-	// 	// Potentially, evaluating 3 functions could be problematic
-	// 	// Based on the loading/unloading of coefficients
-	// 	for(int direction(0); direction < ndir; ++direction){
-	// 		velocity[direction] += gradient[direction].eval(position) * timestep;
-	// 	}
-	//
-	// 	auto pos_time = std::chrono::high_resolution_clock::now();
-	// 	for(int direction(0); direction < 3; ++direction){
-	// 		position[direction] += velocity[direction] * timestep;
-	// 	}
-	//
-	// 	auto up_time = std::chrono::high_resolution_clock::now();
-	//
-	// 	x[particle] = position[0] + ( position[0] > nx ? -(nx-1) : (position[0] < 1 ? (nx-1) : 0) );
-	// 	y[particle] = position[1] + ( position[1] > ny ? -(ny-1) : (position[1] < 1 ? (ny-1) : 0) );
-	// 	z[particle] = position[2] + ( position[2] > nz ? -(nz-1) : (position[2] < 1 ? (nz-1) : 0) );
-	//
-	// 	vx[particle] = velocity[0]; vy[particle] = velocity[1]; vz[particle] = velocity[2];
-	//
-	// 	auto final_time = std::chrono::high_resolution_clock::now();
-	//
-	// 	velocity_time += (float)std::chrono::duration_cast<std::chrono::microseconds>(pos_time  - vel_time).count();
-	// 	position_time += (float)std::chrono::duration_cast<std::chrono::microseconds>(up_time - pos_time).count();
-	// 	update_time += (float)std::chrono::duration_cast<std::chrono::microseconds>(final_time - up_time).count();
-	//
-	// }
+		coordT position;
+		
+		position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
+		
+		grad_x[particle] = gradient[0].eval(position);
+		// grad_y[particle] = gradient[1].eval(position);
+		// grad_z[particle] = gradient[2].eval(position);
+		// printf("Particle %i\n", particle);
+		
+	}
 	
-	if (world.rank() == 0) printf("\tVelocity:  %f s\n",  1e-6*velocity_time );
-	if (world.rank() == 0) printf("\tPosition:  %f s\n",  1e-6*position_time );
-	if (world.rank() == 0) printf("\tUpdate:    %f s\n",  1e-6*update_time );
+	if (world.rank() == 0) printf(" Forcing futures\n");
+	
+	// Force futures
+	world.gop.fence();
+	world.gop.sum(&grad_x[0], upper_limit);
+	// world.gop.sum(&grad_y[0], upper_limit);
+	// world.gop.sum(&grad_z[0], upper_limit);
+	
+	auto up_time = std::chrono::high_resolution_clock::now();
+	
+	if (world.rank() == 0) printf("Evaluation time: %f s\n",  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(up_time - eval_time).count());
+	
+	for(int particle = world.rank(); particle < upper_limit; particle += world.size()){
+		
+		coordT position, velocity;
+		position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
+		velocity[0] = vx[particle]; velocity[1] = vy[particle]; velocity[2] = vz[particle];
+		
+		velocity[0] += grad_x[particle] * timestep;
+		velocity[1] += grad_y[particle] * timestep;
+		velocity[2] += grad_z[particle] * timestep;
+	
+		for(int direction(0); direction < 3; ++direction){
+			position[direction] += velocity[direction] * timestep;
+		}
+
+		x[particle] = position[0] + ( position[0] > nx ? -(nx-1) : (position[0] < 1 ? (nx-1) : 0) );
+		y[particle] = position[1] + ( position[1] > ny ? -(ny-1) : (position[1] < 1 ? (ny-1) : 0) );
+		z[particle] = position[2] + ( position[2] > nz ? -(nz-1) : (position[2] < 1 ? (nz-1) : 0) );
+
+		vx[particle] = velocity[0]; vy[particle] = velocity[1]; vz[particle] = velocity[2];
+	}
+	
+	// for(int particle = world.rank(); particle < upper_limit; particle += world.size()){
+//
+// 		coordT position, velocity;
+// 		position[0] = x[particle]; position[1] = y[particle]; position[2] = z[particle];
+// 		velocity[0] = vx[particle]; velocity[1] = vy[particle]; velocity[2] = vz[particle];
+// 		double evaluation;
+//
+// 		// auto vel_time = std::chrono::high_resolution_clock::now();
+// 		int ndir(3);
+// 		// Potentially, evaluating 3 functions could be problematic
+// 		// Based on the loading/unloading of coefficients
+// 		for(int direction(0); direction < ndir; ++direction){
+//
+// 			evaluation = gradient[direction].eval(position);
+// 			velocity[direction] += evaluation * timestep;
+//
+// 		}
+//
+// 		// auto pos_time = std::chrono::high_resolution_clock::now();
+// 		for(int direction(0); direction < 3; ++direction){
+// 			position[direction] += velocity[direction] * timestep;
+// 		}
+//
+// 		// auto up_time = std::chrono::high_resolution_clock::now();
+//
+// 		x[particle] = position[0] + ( position[0] > nx ? -(nx-1) : (position[0] < 1 ? (nx-1) : 0) );
+// 		y[particle] = position[1] + ( position[1] > ny ? -(ny-1) : (position[1] < 1 ? (ny-1) : 0) );
+// 		z[particle] = position[2] + ( position[2] > nz ? -(nz-1) : (position[2] < 1 ? (nz-1) : 0) );
+//
+// 		vx[particle] = velocity[0]; vy[particle] = velocity[1]; vz[particle] = velocity[2];
+//
+// 		// auto final_time = std::chrono::high_resolution_clock::now();
+//
+// 		// velocity_time += (float)std::chrono::duration_cast<std::chrono::microseconds>(pos_time  - vel_time).count();
+// 		// position_time += (float)std::chrono::duration_cast<std::chrono::microseconds>(up_time - pos_time).count();
+// 		// update_time += (float)std::chrono::duration_cast<std::chrono::microseconds>(final_time - up_time).count();
+//
+// 		// printf("Particle %i\n", particle);
+// 	}
+//
+	world.gop.fence();
+	
+	// if (world.rank() == 0) printf("\tVelocity:  %f s\n",  1e-6*velocity_time );
+	// if (world.rank() == 0) printf("\tPosition:  %f s\n",  1e-6*position_time );
+	// if (world.rank() == 0) printf("\tUpdate:    %f s\n",  1e-6*update_time );
 	
 	auto end_time = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("Update step: %f s\n",  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(end_time  - start_time).count());
@@ -398,17 +441,15 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 
 int main(int argc, char** argv){
 	
-	int nx, ny, nz, nparticles;
+	int nx, ny, nz, nparticles, nproc;
 	int nstep;
 	std::vector<real_t> x, y, z, vx, vy, vz, mass, density;
 	double timestep;
 	
-	// Put algorithm to do adaptive timestepping
 	timestep = 5;
 	
-	if(argc == 3){
-		nparticles = atoi(argv[1]);
-		nx = atoi(argv[2]);
+	if(argc == 2){
+		nx = atoi(argv[1]);
 		ny = nx;
 		nz = nx;
 	}
@@ -417,7 +458,7 @@ int main(int argc, char** argv){
 	World world(SafeMPI::COMM_WORLD);
 	startup(world, argc, argv);
 
-	// get_dim_(&nx, &ny, &nz, &nparticles);
+	get_dim_(&nx, &ny, &nz, &nparticles, &nproc);
 
 	x.resize(nparticles);
 	y.resize(nparticles);
@@ -430,11 +471,11 @@ int main(int argc, char** argv){
 	
 	if (world.rank() == 0) printf("Dimensions: %i %i %i\n", nx, ny, nz);
 	if (world.rank() == 0) printf("Number of particles: %i\n", nparticles);
+	if (world.rank() == 0) printf("num_procs to write file: %i\n", nproc);
 	
-	// start_time = wall_time();
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
-	part_init_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
+	part_init_(&nx, &ny, &nz, &nparticles, &nproc, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
 	
 	
 	world.gop.fence();
@@ -445,40 +486,40 @@ int main(int argc, char** argv){
 	
 	// for(int step(0); step < nstep; ++step){
 	//
-	// 	world.gop.fence();
-		// auto step_start_time = std::chrono::high_resolution_clock::now();
+	// world.gop.fence();
+	// auto step_start_time = std::chrono::high_resolution_clock::now();
 	//
-		int step(0);
-	// 	//
-		project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
-	// 	//
+	int step(0);
 	//
-	// 	world.gop.fence();
-		// auto step_density_time = std::chrono::high_resolution_clock::now();
-		// if (world.rank() == 0) printf("\tDensity %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_density_time - step_start_time).count());
+	project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
 	//
-	// 	//
-	// 	// real_function_3d potential = solve_potential(world, nx, ny, nz, &density[0]);
+	//
+	// world.gop.fence();
+	// auto step_density_time = std::chrono::high_resolution_clock::now();
+	// if (world.rank() == 0) printf("\tDensity %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_density_time - step_start_time).count());
+	//
+	//
+	// real_function_3d potential = solve_potential(world, nx, ny, nz, &density[0]);
 		
-		real_function_3d potential = solve_potential(world, &x[0], &y[0], &z[0], nx, ny, nz, nparticles, &density[0]);
-	// 	//
+	real_function_3d potential = solve_potential(world, &x[0], &y[0], &z[0], nx, ny, nz, nparticles, &density[0]);
 	//
-		// world.gop.fence();
-		// auto potential_time  = std::chrono::high_resolution_clock::now();
-		// if (world.rank() == 0) printf("\tPotential %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_potential_time  - step_density_time).count());
-		// if (world.rank() == 0) printf("\nFinished\n\n");
 	//
-	// 	//
-		update_particles(world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
-	// 	//
+	// world.gop.fence();
+	// auto potential_time  = std::chrono::high_resolution_clock::now();
+	// if (world.rank() == 0) printf("\tPotential %i: %f s\n", step, 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(step_potential_time  - step_density_time).count());
+	// if (world.rank() == 0) printf("\nFinished\n\n");
+	//
+	//
+	// update_particles(world, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], nparticles, potential, timestep);
+	//
 	//
 	// 	world.gop.fence();
-		// auto update_time = std::chrono::high_resolution_clock::now();
-		// if (world.rank() == 0) printf("\tUpdate %i: %f s\n", step,  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(update_time  - potential_time).count());
+	// auto update_time = std::chrono::high_resolution_clock::now();
+	// if (world.rank() == 0) printf("\tUpdate %i: %f s\n", step,  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(update_time  - potential_time).count());
 	//
-	// 	//
+	//
 	// 	memset(&density[0], 0, sizeof(real_t)*nx*ny*nz);
-	// 	//
+	//
 	//
 	// 	world.gop.fence();
 	// 	auto step_finish_time = std::chrono::high_resolution_clock::now();
@@ -491,8 +532,6 @@ int main(int argc, char** argv){
 	if (world.rank() == 0) printf("\nOverall time: %f s\n\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(overall_time  - start_time).count());
 
 	finalize();
-	
-	printf("#YOLO");
 	
 	return 0;
 }

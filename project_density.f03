@@ -65,7 +65,6 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 		density(idxp, idyp, idzp) = density(idxp, idyp, idzp) + d8 * mass(particle)
 		
 	end do
-	
 		
 	CALL WRITE_DENSITY(nx, ny, nz, density, step)
 	

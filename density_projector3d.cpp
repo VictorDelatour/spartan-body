@@ -5,6 +5,19 @@ nx(nx), ny(ny), nz(nz), data(data){
 	
 	counter = new AtomicCounter();
 	
+	// std::string filename("data/cube128_1gaussian_1_1.bin");
+	//
+	// std::ifstream file;
+	//
+	// file.open(filename, std::ios::in | std::ios::binary);
+	//
+	//   	if (file.is_open()){
+	//     	file.read(reinterpret_cast<char*>(&data[0]), nx * ny * nz * (sizeof data[0]) );
+	//    	} else{
+	//    		std::cout << "File " << filename <<" not opened" << std::endl;
+	//    	}
+
+	
 	// Filtering along rows, the space between two consecutive elements is simply 1 (adjacent)
 	inplace_filtering(Axis::X);
 	// Filtering along columns, the space between two consecutive elements is nx
@@ -16,8 +29,6 @@ nx(nx), ny(ny), nz(nz), data(data){
 }
 
 DensityProjector::~DensityProjector(){
-	// get_counter();
-	// printf("Number of accesses %i\n", counter->get());
 	delete data;
 	delete counter;
 }
@@ -108,12 +119,6 @@ double DensityProjector::operator()(const madness::coord_3d& x) const{
 		for(int j(0); j <= 3; ++j){
 
 			interx = 0.0; // Interpolated value along x-axis
-			//
-			// for(int i(0); i <= 3; ++i){
-			// 	disp = xpositions[i] + (ypositions[j] + zpositions[k] * ny) * nx; // Position
-			//
-			// 	interx += xweights[i] * data[disp];
-			// }
 			
 			// Loop unrolling
 			disp = (ypositions[j] + zpositions[k] * ny) * nx;
@@ -241,10 +246,8 @@ int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3
 	
 	numel = ( (axis == Axis::X) ? nx : ( (axis == Axis::Y) ? ny : nz) );
 	pos = ( (axis == Axis::X) ? 0 : ( (axis == Axis::Y) ? 1 : 2) );
-	
-	// Is this slow?
-	// index = (int) floor(x[pos] - 1);
-	index = static_cast<int> (x[pos] - 1.); // Faster, plus you should be safe, as x belongs to [1, 128]
+
+	index = static_cast<int> (x[pos] - 1.); // x belongs to [1, 128]
 	
 	alpha = x[pos] - (index + 1.); 	
 	
@@ -256,11 +259,6 @@ int DensityProjector::get_weights_and_position(Axis axis, const madness::coord_3
 	weights[1] = 2./3. - .5 * alp2 * (2. - alpha);
 	weights[2] = 2./3. - .5 * ialp2 * (1. + alpha);
 	weights[3] = 1./6. * alp2 * alpha;
-
-	// weights[0] = 1./6. * (1. - alpha) * (1. - alpha) * (1. - alpha);
-	// weights[1] = 2./3. - .5 * alpha * alpha * (2. - alpha);
-	// weights[2] = 2./3. - .5 * (1. - alpha) * (1. - alpha) * (1. + alpha);
-	// weights[3] = 1./6. * alpha * alpha * alpha;
 	
 	for(int k(0); k <= 3; ++k){
 		
@@ -293,7 +291,6 @@ int DensityProjector::get_coef(real_t *start, const int numel, const int shift){
 		start[k*shift] += z1 * start[ (k-1)*shift ];
 	}
 	
-	// Last element of the line we are considering
 	start[ (numel-1)*shift ] = get_last_anticausal(&start[0], numel, shift);
 	
 	for(int k(numel-2); k > -1; --k){
