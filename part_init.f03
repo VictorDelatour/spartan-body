@@ -9,12 +9,23 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 	REAL*8, DIMENSION(nparticles) :: x, y, z, vx, vy, vz, mass 
 	REAL*8, DIMENSION(:), ALLOCATABLE :: buffer
 	
-	INTEGER :: unit_part, unit_info, pos
+	INTEGER :: unit_part, unit_info, pos, index
 	CHARACTER(LEN = 128) :: folder, filename,  char_buffer
-	CHARACTER(LEN = 128) :: nx_string, pos_string
+	CHARACTER(LEN = 128) :: nx_string, pos_string, index_string
 		
 	write(nx_string, "(I0)") nx
+	
+	if (nx .eq. 512) then
+		index = 6	
+	else
+		index = 3
+	end if
+	
+	write(index_string, "(I0)")  index
+		
+	
 	folder = "./output_00003/test" // TRIM(nx_string)
+! 	folder = "./output_0000" // TRIM(index_string) // "/test" // TRIM(nx_string)
 	
 	first = 1
 	last = 0
@@ -22,7 +33,15 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 	do pos = 1, nproc
 		
 		write(pos_string, "(I0)") pos
-		filename = TRIM(folder) // "/part_00003.out0000" // TRIM(pos_string)
+		
+		if (pos < 10) then
+			filename = TRIM(folder) // "/part_0000" // TRIM(index_string) // ".out0000" // TRIM(pos_string)
+		else if (pos < 100) then
+			filename = TRIM(folder) // "/part_0000" // TRIM(index_string) // ".out000" // TRIM(pos_string)
+		else 
+			filename = TRIM(folder) // "/part_0000" // TRIM(index_string) // ".out00" // TRIM(pos_string)
+		end if
+		
 		write(*,*) filename
 		
 		open(unit = unit_part, file = filename, status = 'old', form = 'unformatted')

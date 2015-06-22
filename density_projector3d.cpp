@@ -29,7 +29,7 @@ nx(nx), ny(ny), nz(nz), data(data){
 }
 
 DensityProjector::~DensityProjector(){
-	delete data;
+	// delete data;
 	delete counter;
 }
 

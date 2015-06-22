@@ -199,7 +199,7 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	
 	if (world.rank() == 0) printf("\nDensity step\n");
 	
-	double access_value;
+	// double access_value;
 	real_functor_3d density_functor;
 	
 	coord_3d center;
@@ -240,7 +240,7 @@ void compute_potential(World& world, const real_function_3d& projected_density, 
 	if (world.rank() == 0) printf("\nPotential step\n");
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
-	double integral, volume, mean;
+	// double integral, volume, mean;
 	
 	real_convolution_3d coulomb_operator = CoulombOperator(world, precision, threshold);
 	
@@ -275,7 +275,7 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	real_function_3d phi;
 	coord_3d center;
 	real_function_3d temp;
-	int limit;
+	// int limit;
 	
 	// if (world.rank() == 0) printf("Setup initial parameters\n");
 	set_initial_parameters(nx);
@@ -329,7 +329,7 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 	auto gradient_time = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\tGradient:  %f s\n",  1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(gradient_time  - start_time).count());
 	
-	float velocity_time(0.), position_time(0.), update_time(0.);
+	// float velocity_time(0.), position_time(0.), update_time(0.);
 			
 	
 	auto eval_time = std::chrono::high_resolution_clock::now();
@@ -442,11 +442,11 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 int main(int argc, char** argv){
 	
 	int nx, ny, nz, nparticles, nproc;
-	int nstep;
+	// int nstep;
 	std::vector<real_t> x, y, z, vx, vy, vz, mass, density;
-	double timestep;
+	// double timestep;
 	
-	timestep = 5;
+	// timestep = 5;
 	
 	if(argc == 2){
 		nx = atoi(argv[1]);
@@ -458,7 +458,15 @@ int main(int argc, char** argv){
 	World world(SafeMPI::COMM_WORLD);
 	startup(world, argc, argv);
 
-	get_dim_(&nx, &ny, &nz, &nparticles, &nproc);
+	// Better to only read once all the data
+	if(world.rank() == 0){
+		get_dim_(&nx, &ny, &nz, &nparticles, &nproc);
+	}
+	
+	world.gop.broadcast(nx);
+	world.gop.broadcast(ny);
+	world.gop.broadcast(nz);
+	world.gop.broadcast(nparticles);
 
 	x.resize(nparticles);
 	y.resize(nparticles);
@@ -475,23 +483,33 @@ int main(int argc, char** argv){
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
-	part_init_(&nx, &ny, &nz, &nparticles, &nproc, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
+	int step(0);
 	
+	if(world.rank() == 0){
+		part_init_(&nx, &ny, &nz, &nparticles, &nproc, &x[0], &y[0], &z[0], &vx[0], &vy[0], &vz[0], &mass[0]);
+		project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
+	}
+	
+	world.gop.broadcast(&density[0], nx*ny*nz, 0);
 	
 	world.gop.fence();
+	
+	// if(world.rank() != 0){
+	// 	printf("Rank %i: density[0] = %f\n", world.rank(), density[0]);
+	// }
 	// auto init_time = std::chrono::high_resolution_clock::now();
 	// if (world.rank() == 0) printf("\nInitialization time: %f s\n\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(init_time - start_time).count());
 	
-	nstep = 3;
+	// nstep = 3;
 	
 	// for(int step(0); step < nstep; ++step){
 	//
 	// world.gop.fence();
 	// auto step_start_time = std::chrono::high_resolution_clock::now();
 	//
-	int step(0);
+	// int step(0);
 	//
-	project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
+	// project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
 	//
 	//
 	// world.gop.fence();
@@ -527,6 +545,7 @@ int main(int argc, char** argv){
 	//
 	// }
 	//
+	
 	world.gop.fence();
 	auto overall_time = std::chrono::high_resolution_clock::now();
 	if (world.rank() == 0) printf("\nOverall time: %f s\n\n", 1e-3*(float)std::chrono::duration_cast<std::chrono::milliseconds>(overall_time  - start_time).count());
