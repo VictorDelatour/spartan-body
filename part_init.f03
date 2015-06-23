@@ -98,9 +98,13 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 !
 ! 	read(unit_part) mass !
 !
-	x = x * (nx - 1) + 1.0
-	y = y * (ny - 1) + 1.0
-	z = z * (nz - 1) + 1.0
+! 	x = x * (nx - 1) + 1.0
+! 	y = y * (ny - 1) + 1.0
+! 	z = z * (nz - 1) + 1.0
+
+	x = x * (128 - 1) + 1.0
+	y = y * (128 - 1) + 1.0
+	z = z * (128 - 1) + 1.0
 	
 ! 	close(unit_part)
 !

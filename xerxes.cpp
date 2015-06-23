@@ -38,7 +38,7 @@ public:
 
     // MADNESS will call this interface
     double operator()(const coord_3d& x) const {
-		counter->increment();
+		// counter->increment();
 		
 		double sum = 0.0;
 		for (int i(0); i<3; i++) {
@@ -96,7 +96,7 @@ void set_initial_parameters(const int& nx){
 	
 	BoundaryConditions<3> bc(BC_PERIODIC);
 	
-	FunctionDefaults<3>::set_cubic_cell((double) 1, (double) nx);
+	FunctionDefaults<3>::set_cubic_cell(1.0, static_cast<double>(nx));
 	FunctionDefaults<3>::set_bc(bc);
 	FunctionDefaults<3>::set_apply_randomize(true);
 	FunctionDefaults<3>::set_autorefine(true);
@@ -154,7 +154,8 @@ void initialize_mod_density(const int& nx, const int& ny, const int& nz, real_t*
 	
 	coordT position;
 	
-	double left(-5.), right(5.);
+	// double left(-5.), right(5.);
+	double left(1.0), right(static_cast<double>(nx));
 	double length(right-left);
 	
 
@@ -188,7 +189,7 @@ void initialize_mod_density(const int& nx, const int& ny, const int& nz, real_t*
 				// Position ranges from 1 to 128
 				position[0] += pz;
 
-				density[index_y + idx] = gaussian_density(position);
+				density[index_y + idx] = 1e5*gaussian_density(position);
 				// printf("Density (%f, %f, %f): %f\n", position[0], position[1], position[2], density[index_y + idx]);
 			}
 		}
@@ -199,14 +200,10 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	
 	if (world.rank() == 0) printf("\nDensity step\n");
 	
-	// double access_value;
 	real_functor_3d density_functor;
 	
 	coord_3d center;
 	center[0] = .5 * (nx + 1.0); center[1] = .5 * (ny + 1.0); center[2] = .5 * (nz + 1.0);
-
-	// DensityProjector numerical_gaussian(nx, ny, nz, &density[0]);
-	// numerical_gaussian.reset_counter();
 	
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
@@ -214,6 +211,7 @@ void build_projected_density(World& world, const int& nx, const int& ny, const i
 	
 	density_functor = real_functor_3d(new DensityProjector(nx, ny, nz, &density[0]));
 
+	// nx = ny = nz = 128;
 	// Is 10x too small?
 	// density_functor = real_functor_3d( new Gaussian(center, 10.0, 1.0) );
 	
@@ -275,30 +273,16 @@ real_function_3d solve_potential(World& world, real_t* x, real_t* y, real_t* z, 
 	real_function_3d phi;
 	coord_3d center;
 	real_function_3d temp;
-	// int limit;
 	
-	// if (world.rank() == 0) printf("Setup initial parameters\n");
-	set_initial_parameters(nx);
-	// if (world.rank() == 0) printf("Set...\n\n");
+	set_initial_parameters(128);
 	
-	// if (world.rank() == 0) printf("Setup projection precision\n");
 	set_projection_precision(9, 1e-7);
-	// if (world.rank() == 0) printf("Set...\n\n");
-	
-	// if (world.rank() == 0) printf("Build projected density\n");
+
 	build_projected_density(world, nx, ny, nz, density, rho_interp);
-	// if (world.rank() == 0) printf("Built...\n\n");
-	
-	// if (world.rank() == 0) printf("\tPrinting density\n");
-	// print_density(world, rho_interp, 128, nx);
-	// if (world.rank() == 0) printf("\tPrinted...\n\n");
-	
-	// if (world.rank() == 0) printf("Computing potential\n");
+
 	compute_potential(world, rho_interp, phi, 1e-6, 1e-8);
 		
-	// if (world.rank() == 0) printf("Printing potential\n");
 	print_potential(world, phi, 128, nx);
-	// if (world.rank() == 0) printf("Printed...\n\n");
 	
 	return phi;
 }
@@ -442,6 +426,7 @@ void update_particles(World& world, real_t* x, real_t* y, real_t* z, real_t* vx,
 int main(int argc, char** argv){
 	
 	int nx, ny, nz, nparticles, nproc;
+	int real_size;
 	// int nstep;
 	std::vector<real_t> x, y, z, vx, vy, vz, mass, density;
 	// double timestep;
@@ -477,6 +462,8 @@ int main(int argc, char** argv){
 	mass.resize(nparticles);
 	density.resize(nx*ny*nz);
 	
+	real_size = nx*ny*nz;
+	
 	if (world.rank() == 0) printf("Dimensions: %i %i %i\n", nx, ny, nz);
 	if (world.rank() == 0) printf("Number of particles: %i\n", nparticles);
 	if (world.rank() == 0) printf("num_procs to write file: %i\n", nproc);
@@ -490,7 +477,12 @@ int main(int argc, char** argv){
 		project_density_(&nx, &ny, &nz, &nparticles, &x[0], &y[0], &z[0], &mass[0], &density[0], &step);
 	}
 	
-	world.gop.broadcast(&density[0], nx*ny*nz, 0);
+	world.gop.broadcast(&density[0], real_size, 0);
+	world.gop.broadcast(nx);
+	world.gop.broadcast(ny);
+	world.gop.broadcast(nz);
+	
+	if (world.rank() == 0) printf("Dimensions: %i %i %i\n", nx, ny, nz);
 	
 	world.gop.fence();
 	
