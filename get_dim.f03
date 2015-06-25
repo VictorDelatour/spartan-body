@@ -1,5 +1,10 @@
 SUBROUTINE GET_DIM(nx, ny, nz, nparticles, nproc)
 	
+	! Reads the number of cpus used for the RASMES simulation that produces the particle initialization used in the code,
+	! then reads each file containing particles to get the total number of particles to allocate enough memory
+	!
+	! Expects and info_0000* file containing ncpu, and ncpu files containing the number of particles contained in each file
+	
 	IMPLICIT NONE
 	
 	INTEGER :: nproc, pos, index
@@ -36,7 +41,6 @@ SUBROUTINE GET_DIM(nx, ny, nz, nparticles, nproc)
 	do pos = 1, nproc
 		
 		write(pos_string, "(I0)") pos
-! 		filename = TRIM(folder) // "/part_00003.out0000" // TRIM(pos_string)
 
 		if (pos < 10) then
 			filename = TRIM(folder) // "/part_0000" // TRIM(index_string) // ".out0000" // TRIM(pos_string)

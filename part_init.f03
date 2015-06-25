@@ -1,5 +1,9 @@
 SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 	
+	!
+	! Reads all the files containing the particles to import their position, velocity and mass
+	!
+	
 	IMPLICIT NONE
 	
 	INTEGER :: nx, ny, nz, nparticles, nproc, nparticles_file, total_npart
@@ -25,7 +29,6 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 		
 	
 	folder = "./output_00003/test" // TRIM(nx_string)
-! 	folder = "./output_0000" // TRIM(index_string) // "/test" // TRIM(nx_string)
 	
 	first = 1
 	last = 0
@@ -55,8 +58,6 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 		end do
 		
 		last = first + nparticles_file - 1
-		
-! 		write(*,*) first, last
 
 		read(unit_part) x(first:last)
 		read(unit_part) y(first:last)
@@ -74,40 +75,10 @@ SUBROUTINE PART_INIT(nx, ny, nz, nparticles, nproc, x, y, z, vx, vy, vz, mass)
 		
 	end do
 	
-! 	filename = './output_00003/part_00003.out00001'
-!
-! 	open(unit = unit_part, file = filename, status = 'old', form = 'unformatted')
-!
-! 	read(unit_part)
-! 	read(unit_part)
-! 	read(unit_part) nparticles_file
-!
-! 	write(*,'(a i10)') "Particles in file", nparticles_file
-!
-! 	do pos = 1,5
-!     	read(unit_part) !skip
-! 	end do
-! 
-! 	read(unit_part) x
-! 	read(unit_part) y
-! 	read(unit_part) z
-!
-! 	read(unit_part) vx
-! 	read(unit_part) vy
-! 	read(unit_part) vz
-!
-! 	read(unit_part) mass !
-!
-! 	x = x * (nx - 1) + 1.0
-! 	y = y * (ny - 1) + 1.0
-! 	z = z * (nz - 1) + 1.0
-
+	
 	x = x * (128 - 1) + 1.0
 	y = y * (128 - 1) + 1.0
 	z = z * (128 - 1) + 1.0
-	
-! 	close(unit_part)
-!
 	
 	
 END SUBROUTINE PART_INIT

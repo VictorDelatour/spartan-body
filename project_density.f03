@@ -1,5 +1,7 @@
 SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 	
+	! Projects the mass of the particles onto a uniform cubic mesh by using trilinear interpolation
+	
 	IMPLICIT NONE
 	
 	INTEGER :: step
@@ -35,7 +37,6 @@ SUBROUTINE PROJECT_DENSITY(nx, ny, nz, nparticles, x, y, z, mass, density, step)
 		if(idy .eq. ny) idyp = 1
 		if(idz .eq. nz) idzp = 1
 		
-		! Computes the distance from the middle point of the cell?
 		didx = x(particle) - float(idx) + 0.5
 		didy = y(particle) - float(idy) + 0.5
 		didz = z(particle) - float(idz) + 0.5

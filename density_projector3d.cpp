@@ -5,31 +5,16 @@ nx(nx), ny(ny), nz(nz), data(data){
 	
 	counter = new AtomicCounter();
 	
-	// std::string filename("data/cube128_1gaussian_1_1.bin");
-	//
-	// std::ifstream file;
-	//
-	// file.open(filename, std::ios::in | std::ios::binary);
-	//
-	//   	if (file.is_open()){
-	//     	file.read(reinterpret_cast<char*>(&data[0]), nx * ny * nz * (sizeof data[0]) );
-	//    	} else{
-	//    		std::cout << "File " << filename <<" not opened" << std::endl;
-	//    	}
-
-	
-	// Filtering along rows, the space between two consecutive elements is simply 1 (adjacent)
+	// Apply separable filtering of the data to yield the cubic B-spline coefficients
+	// Could be optimized by using GPU
 	inplace_filtering(Axis::X);
-	// Filtering along columns, the space between two consecutive elements is nx
 	inplace_filtering(Axis::Y);
-	// Filtering along slabs, the space between two consecutive elements is the nx*ny plane
 	inplace_filtering(Axis::Z);
 	
 	
 }
 
 DensityProjector::~DensityProjector(){
-	// delete data;
 	delete counter;
 }
 
@@ -52,7 +37,6 @@ const double DensityProjector::test_performance(const madness::coord_3d& x, cons
 	auto start_time = std::chrono::high_resolution_clock::now();
 	
 	for(int iter(0); iter < npoints; ++iter){
-		
 		get_weights_and_position(Axis::X, x, &xweights[0], &xpositions[0]);
 		get_weights_and_position(Axis::Y, x, &yweights[0], &ypositions[0]);
 		get_weights_and_position(Axis::Z, x, &zweights[0], &zpositions[0]);

@@ -7,8 +7,9 @@
 #include <iostream>
 #include <vector>
 
-
 typedef double real_t;
+
+// struct to count the number of calls to operator() during the construction of the multiwavelet representation of the density
 
 struct AtomicCounter {
     std::atomic<int> value;
@@ -37,11 +38,34 @@ public:
 	DensityProjector(const int nx, const int ny, const int nz, double* data);
 	~DensityProjector();
 	
+	///
+	/// @brief 	Access operator
+	///
+	/// @param[in]	x		Coordinates of point to be evaluated
+	///
+	/// operator() evaluates the dataset at arbitrary coordinates x. This is done by using cubic B-splines interpolation
+	/// based on the uniform mesh provided based on the scattered dataset of the particles. The interpolation requires
+	/// 128 flop and 64 fetches, and is memory bound.
+	///
+	///
+	
 	double operator()(const madness::coord_3d& x) const;
 	
 	const int get_counter() const;
+	
 	void reset_counter();
 	
+	///
+	/// @brief 	Test the performance of the operator() based on cubic B-spline interpolation
+	///
+	/// @param[in]	x		Coordinates of point to be tested
+	/// @param[in]	npoints Number of evaluations to be performed
+	///
+	/// Function to test the performance of the operator(), to compare its observed performance compared to the peak performance
+	/// There are 128 flop and 64 data fetches for 1 access to memory. Using the reference values of the machines provides
+	/// a comparison. The implementation simply calls npoints evaluation of the data at position x. This 
+	///
+
 	const double test_performance(const madness::coord_3d& x, const int& npoints) const;
 	
 	
@@ -58,12 +82,38 @@ private:
 	
 	real_t* data;
 	
-	// std::atomic<int> counter;
 	AtomicCounter* counter;
+	
+	///
+	/// @brief 	Construction of the coefficients
+	///
+	/// @param[in]	axis	Axis along which the filter will be applied
+	///
+	/// Applies the separable filter will be applied to yield the coefficients for the cubic B-spline. 
+	/// This filter must be applied in each direction to produce the correct coefficients.
+	///
 	
 	int inplace_filtering(Axis axis);
 	
+	///
+	/// @brief 	Gaussian smoothing to the data
+	///
+	/// @param[in]	axis	Axis along which the filter will be applied
+	///
+	
 	int gaussian_filtering(Axis axis);
+	
+	///
+	/// @brief 	Compute interpolation weights and position
+	///
+	/// @param[in]		axis		Axis of reference
+	/// @param[in]		x			Coordinates the function should be evaluated in
+	/// @param[in, out]	weights		Weights used for the cubic B-spline interpolation (array of 4 real_t)
+	/// @param[in, out]	position	Indices of the coefficients along the axis
+	///
+	/// Computes the weights of each coefficient of the axis, referenced by position, used for the interpolation.
+	///
+
 	
 	int get_weights_and_position(Axis axis, const madness::coord_3d& x, real_t* weights, int* position) const;
 	
