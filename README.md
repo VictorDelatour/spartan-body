@@ -14,7 +14,7 @@ Using the provided makefile, simply `make` the spartan-body executable using GNU
 
 To run the executable for a gridsize *nx*
 ```
-arpun -n #NUM_OF_PROCS -cc none ./spartan nx
+aprun -n #NUM_OF_PROCS -cc none ./spartan nx
 ```
 failing to remove thread pinning ('-cc none') reduces drastically the performance. 
 
