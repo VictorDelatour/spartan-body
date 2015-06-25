@@ -1,6 +1,6 @@
 # spartan-body
 
-Spartan-body is an n-body solver that uses the [MADNESS](https://github.com/m-a-d-n-e-s-s/madness/) numerical environment to solve the Poisson equation for the gravitational potential and was implemented as part of an internship. The goal of said internship was to test the use of MADNESS as a viable alternative Poisson solver and compare its accuracy and performance with a particle-mesh method based Poisson solver using the Fastest Fourier Transform in the West (FFTW) library.
+Spartan-body uses the [MADNESS](https://github.com/m-a-d-n-e-s-s/madness/) numerical environment to solve the Poisson equation for the gravitational potential and was implemented as part of an internship. The goal of said internship was to test the use of MADNESS as a viable alternative Poisson solver and compare its accuracy and performance with a particle-mesh method based Poisson solver using the Fastest Fourier Transform in the West (FFTW) library.
 
 ## Usage
 
